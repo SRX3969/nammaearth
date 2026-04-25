@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   User, Mail, Lock, Eye, EyeOff, ArrowRight,
-  MapPin, AlertCircle, Clock, ChevronRight, LogOut,
-  Settings, Bell, Bookmark
+  MapPin, AlertCircle, Clock, LogOut,
+  Settings, Bell, Bookmark, Loader2
 } from 'lucide-react';
 import LeafLogo from '../components/LeafLogo';
+import { supabase } from '../lib/supabase';
 import './Login.css';
 
 const fadeUp = {
@@ -16,13 +17,75 @@ const fadeUp = {
 export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [reports, setReports] = useState([]);
+  const [savedLocs, setSavedLocs] = useState([]);
   const [form, setForm] = useState({ name: '', email: '', password: '' });
   const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
+  const [checkingSession, setCheckingSession] = useState(true);
+
+  // Check for existing session on mount
+  useEffect(() => {
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUser(session.user);
+        await loadUserData(session.user.id);
+      }
+      setCheckingSession(false);
+    };
+    checkSession();
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        setUser(session.user);
+        await loadUserData(session.user.id);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+        setProfile(null);
+        setReports([]);
+        setSavedLocs([]);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const loadUserData = async (userId) => {
+    // Load profile
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', userId)
+      .single();
+    if (profileData) setProfile(profileData);
+
+    // Load user's reports
+    const { data: reportsData } = await supabase
+      .from('reports')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(10);
+    if (reportsData) setReports(reportsData);
+
+    // Load saved locations
+    const { data: locsData } = await supabase
+      .from('saved_locations')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
+    if (locsData) setSavedLocs(locsData);
+  };
 
   const handleChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: null }));
+    setAuthError('');
   };
 
   const validate = () => {
@@ -36,34 +99,58 @@ export default function Login() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (validate()) {
-      setIsLoggedIn(true);
+    if (!validate()) return;
+
+    setLoading(true);
+    setAuthError('');
+
+    try {
+      if (isLogin) {
+        // Sign in
+        const { error } = await supabase.auth.signInWithPassword({
+          email: form.email,
+          password: form.password,
+        });
+        if (error) throw error;
+      } else {
+        // Sign up
+        const { error } = await supabase.auth.signUp({
+          email: form.email,
+          password: form.password,
+          options: {
+            data: { name: form.name },
+          },
+        });
+        if (error) throw error;
+      }
+    } catch (err) {
+      setAuthError(err.message || 'Authentication failed. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Mock user data for dashboard
-  const userData = {
-    name: form.name || 'Citizen User',
-    email: form.email || 'user@nammaearth.in',
-    joined: 'April 2026',
-    reportsSubmitted: 12,
-    savedLocations: 5,
-    recentReports: [
-      { id: 1, type: 'Garbage Dumping', location: 'Koramangala', date: 'Apr 24, 2026', status: 'In Progress' },
-      { id: 2, type: 'Air Pollution', location: 'Peenya', date: 'Apr 22, 2026', status: 'Resolved' },
-      { id: 3, type: 'Noise Complaint', location: 'Indiranagar', date: 'Apr 20, 2026', status: 'Submitted' },
-      { id: 4, type: 'Water Leakage', location: 'BTM Layout', date: 'Apr 18, 2026', status: 'Resolved' },
-    ],
-    savedLocs: [
-      { name: 'Koramangala', aqi: 112 },
-      { name: 'Indiranagar', aqi: 98 },
-      { name: 'BTM Layout', aqi: 85 },
-    ],
+  const handleSignOut = async () => {
+    await supabase.auth.signOut();
   };
 
-  if (isLoggedIn) {
+  // Show loading spinner while checking session
+  if (checkingSession) {
+    return (
+      <div className="login-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Loader2 size={32} className="spin" style={{ color: 'var(--primary)' }} />
+      </div>
+    );
+  }
+
+  // Logged-in dashboard
+  if (user) {
+    const displayName = profile?.name || user.user_metadata?.name || 'Citizen User';
+    const displayEmail = profile?.email || user.email;
+    const joinDate = new Date(user.created_at).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
     return (
       <div className="profile-page">
         <div className="container">
@@ -73,17 +160,17 @@ export default function Login() {
               <div className="profile-avatar">
                 <User size={32} />
               </div>
-              <h2 className="profile-name">{userData.name}</h2>
-              <p className="profile-email">{userData.email}</p>
-              <p className="profile-joined"><Clock size={13} /> Member since {userData.joined}</p>
+              <h2 className="profile-name">{displayName}</h2>
+              <p className="profile-email">{displayEmail}</p>
+              <p className="profile-joined"><Clock size={13} /> Member since {joinDate}</p>
 
               <div className="profile-stats-row">
                 <div className="profile-stat">
-                  <span className="profile-stat__value">{userData.reportsSubmitted}</span>
+                  <span className="profile-stat__value">{reports.length}</span>
                   <span className="profile-stat__label">Reports</span>
                 </div>
                 <div className="profile-stat">
-                  <span className="profile-stat__value">{userData.savedLocations}</span>
+                  <span className="profile-stat__value">{savedLocs.length}</span>
                   <span className="profile-stat__label">Saved</span>
                 </div>
               </div>
@@ -103,7 +190,7 @@ export default function Login() {
                 </a>
               </nav>
 
-              <button className="btn btn-ghost profile-logout" onClick={() => setIsLoggedIn(false)}>
+              <button className="btn btn-ghost profile-logout" onClick={handleSignOut}>
                 <LogOut size={16} /> Sign Out
               </button>
             </div>
@@ -116,22 +203,28 @@ export default function Login() {
                   <AlertCircle size={16} /> Report History
                 </h3>
                 <div className="report-history">
-                  {userData.recentReports.map(report => (
-                    <div key={report.id} className="report-history__item">
-                      <div className="report-history__info">
-                        <span className="report-history__type">{report.type}</span>
-                        <span className="report-history__meta">
-                          <MapPin size={12} /> {report.location} · {report.date}
+                  {reports.length === 0 ? (
+                    <p style={{ color: 'var(--gray-500)', fontSize: '0.875rem', padding: '16px 0' }}>
+                      No reports yet. Submit your first report to track environmental issues!
+                    </p>
+                  ) : (
+                    reports.map(report => (
+                      <div key={report.id} className="report-history__item">
+                        <div className="report-history__info">
+                          <span className="report-history__type">{report.type}</span>
+                          <span className="report-history__meta">
+                            <MapPin size={12} /> {report.location} · {new Date(report.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </span>
+                        </div>
+                        <span className={`badge ${
+                          report.status === 'Resolved' ? 'badge-success' :
+                          report.status === 'In Progress' ? 'badge-warning' : 'badge-info'
+                        }`}>
+                          {report.status}
                         </span>
                       </div>
-                      <span className={`badge ${
-                        report.status === 'Resolved' ? 'badge-success' :
-                        report.status === 'In Progress' ? 'badge-warning' : 'badge-info'
-                      }`}>
-                        {report.status}
-                      </span>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -141,17 +234,20 @@ export default function Login() {
                   <Bookmark size={16} /> Saved Locations
                 </h3>
                 <div className="saved-locations">
-                  {userData.savedLocs.map(loc => (
-                    <div key={loc.name} className="saved-location">
-                      <div className="saved-location__info">
-                        <MapPin size={14} style={{ color: 'var(--primary)' }} />
-                        <span>{loc.name}</span>
+                  {savedLocs.length === 0 ? (
+                    <p style={{ color: 'var(--gray-500)', fontSize: '0.875rem', padding: '16px 0' }}>
+                      No saved locations yet.
+                    </p>
+                  ) : (
+                    savedLocs.map(loc => (
+                      <div key={loc.id} className="saved-location">
+                        <div className="saved-location__info">
+                          <MapPin size={14} style={{ color: 'var(--primary)' }} />
+                          <span>{loc.name}</span>
+                        </div>
                       </div>
-                      <span className={`badge ${loc.aqi <= 100 ? 'badge-success' : 'badge-warning'}`}>
-                        AQI {loc.aqi}
-                      </span>
-                    </div>
-                  ))}
+                    ))
+                  )}
                 </div>
               </div>
             </div>
@@ -161,6 +257,7 @@ export default function Login() {
     );
   }
 
+  // Login/Signup form
   return (
     <div className="login-page">
       <div className="login-container">
@@ -179,17 +276,25 @@ export default function Login() {
           <div className="login-tabs">
             <button
               className={`login-tab ${isLogin ? 'login-tab--active' : ''}`}
-              onClick={() => { setIsLogin(true); setErrors({}); }}
+              onClick={() => { setIsLogin(true); setErrors({}); setAuthError(''); }}
             >
               Sign In
             </button>
             <button
               className={`login-tab ${!isLogin ? 'login-tab--active' : ''}`}
-              onClick={() => { setIsLogin(false); setErrors({}); }}
+              onClick={() => { setIsLogin(false); setErrors({}); setAuthError(''); }}
             >
               Sign Up
             </button>
           </div>
+
+          {/* Auth Error Banner */}
+          {authError && (
+            <div className="auth-error-banner">
+              <AlertCircle size={16} />
+              <span>{authError}</span>
+            </div>
+          )}
 
           <form className="login-form" onSubmit={handleSubmit}>
             <AnimatePresence mode="wait">
@@ -257,15 +362,24 @@ export default function Login() {
               </div>
             )}
 
-            <button type="submit" className="btn btn-primary btn-lg login-submit">
-              {isLogin ? 'Sign In' : 'Create Account'}
-              <ArrowRight size={16} />
+            <button type="submit" className="btn btn-primary btn-lg login-submit" disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 size={16} className="spin" />
+                  {isLogin ? 'Signing In...' : 'Creating Account...'}
+                </>
+              ) : (
+                <>
+                  {isLogin ? 'Sign In' : 'Create Account'}
+                  <ArrowRight size={16} />
+                </>
+              )}
             </button>
           </form>
 
           <p className="login-footer-text">
             {isLogin ? "Don't have an account? " : 'Already have an account? '}
-            <button className="login-switch" onClick={() => { setIsLogin(!isLogin); setErrors({}); }}>
+            <button className="login-switch" onClick={() => { setIsLogin(!isLogin); setErrors({}); setAuthError(''); }}>
               {isLogin ? 'Sign Up' : 'Sign In'}
             </button>
           </p>
