@@ -43,12 +43,12 @@
 .chat-header__avatar {
   width: 40px;
   height: 40px;
-  background: var(--primary);
+  background: var(--primary-light);
   border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
+  overflow: hidden;
 }
 
 .chat-header__title {

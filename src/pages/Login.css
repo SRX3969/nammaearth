@@ -27,15 +27,15 @@
 }
 
 .login-brand__icon {
-  width: 52px;
-  height: 52px;
-  background: var(--primary);
+  width: 56px;
+  height: 56px;
+  background: var(--primary-light);
   border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #fff;
   margin: 0 auto 16px;
+  overflow: hidden;
 }
 
 .login-brand__title {

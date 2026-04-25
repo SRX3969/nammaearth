@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Menu, X, Leaf, MapPin, BarChart3, Trophy, AlertCircle, MessageSquare, User } from 'lucide-react';
+import LeafLogo from './LeafLogo';
 import './Navbar.css';
 
 const navLinks = [
@@ -32,7 +33,7 @@ export default function Navbar() {
       <div className="navbar__inner">
         <Link to="/" className="navbar__brand">
           <div className="navbar__logo">
-            <Leaf size={22} />
+            <LeafLogo size={36} />
           </div>
           <span className="navbar__title">NammaEarth</span>
         </Link>

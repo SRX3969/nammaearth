@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  User, Mail, Lock, Eye, EyeOff, ArrowRight, Leaf,
+  User, Mail, Lock, Eye, EyeOff, ArrowRight,
   MapPin, AlertCircle, Clock, ChevronRight, LogOut,
   Settings, Bell, Bookmark
 } from 'lucide-react';
+import LeafLogo from '../components/LeafLogo';
 import './Login.css';
 
 const fadeUp = {
@@ -166,7 +167,7 @@ export default function Login() {
         <motion.div className="login-card" initial="hidden" animate="visible" variants={fadeUp}>
           <div className="login-brand">
             <div className="login-brand__icon">
-              <Leaf size={24} />
+              <LeafLogo size={40} />
             </div>
             <h1 className="login-brand__title">NammaEarth</h1>
             <p className="login-brand__desc">

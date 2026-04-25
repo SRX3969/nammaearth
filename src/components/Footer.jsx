@@ -1,5 +1,6 @@
 import { Link } from 'react-router-dom';
-import { Leaf, Mail, Phone, MapPin, ExternalLink, Globe, Users } from 'lucide-react';
+import { Mail, Phone, MapPin, ExternalLink, Globe, Users } from 'lucide-react';
+import LeafLogo from './LeafLogo';
 import './Footer.css';
 
 export default function Footer() {
@@ -9,7 +10,7 @@ export default function Footer() {
         <div className="footer__grid">
           <div className="footer__brand">
             <div className="footer__logo">
-              <Leaf size={20} />
+              <LeafLogo size={28} />
               <span>NammaEarth</span>
             </div>
             <p className="footer__desc">

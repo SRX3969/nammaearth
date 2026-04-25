@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Send, Bot, User, Leaf, Loader2, Trash2, HelpCircle } from 'lucide-react';
+import { Send, Bot, User, Loader2, Trash2, HelpCircle } from 'lucide-react';
+import LeafLogo from '../components/LeafLogo';
 import './Chat.css';
 
 const SUGGESTED_QUESTIONS = [
@@ -125,7 +126,7 @@ export default function Chat() {
         <div className="chat-header">
           <div className="chat-header__info">
             <div className="chat-header__avatar">
-              <Leaf size={20} />
+              <LeafLogo size={30} />
             </div>
             <div>
               <h2 className="chat-header__title">NammaEarth AI Assistant</h2>
