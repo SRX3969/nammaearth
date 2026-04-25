@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Trash2, Wind, Volume2, Droplets, Flame, AlertTriangle,
-  Upload, MapPin, Send, CheckCircle, Camera, X, FileText, Loader2
+  Upload, MapPin, Send, CheckCircle, Camera, X, FileText, Loader2, LogIn
 } from 'lucide-react';
 import { issueTypes, locations } from '../data/locations';
 import { supabase } from '../lib/supabase';
@@ -16,6 +17,9 @@ const fadeUp = {
 };
 
 export default function ReportIssue() {
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [form, setForm] = useState({
     issueType: '',
     location: '',
@@ -27,6 +31,16 @@ export default function ReportIssue() {
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [reportId, setReportId] = useState('');
+
+  // Check if user is logged in
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
+      setCheckingAuth(false);
+    };
+    checkAuth();
+  }, []);
 
   const handleChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
@@ -65,25 +79,41 @@ export default function ReportIssue() {
     setLoading(true);
 
     try {
-      // Get current user (if logged in)
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) throw new Error('Not authenticated');
+
+      // Upload image if provided
+      let imageUrl = null;
+      if (form.image) {
+        const fileExt = form.image.name.split('.').pop();
+        const fileName = `${currentUser.id}/${Date.now()}.${fileExt}`;
+        const { error: uploadError } = await supabase.storage
+          .from('report-images')
+          .upload(fileName, form.image);
+
+        if (!uploadError) {
+          const { data: urlData } = supabase.storage
+            .from('report-images')
+            .getPublicUrl(fileName);
+          imageUrl = urlData?.publicUrl || null;
+        }
+      }
 
       // Find the selected issue type label
       const issueLabel = issueTypes.find(t => t.id === form.issueType)?.label || form.issueType;
-
-      // Find location coordinates
       const selectedLoc = locations.find(l => l.name === form.location);
 
       // Insert report into Supabase
       const { data, error } = await supabase
         .from('reports')
         .insert({
-          user_id: user?.id || null,
+          user_id: currentUser.id,
           type: issueLabel,
           location: form.location,
           description: form.description,
           severity: 'Medium',
           status: 'Submitted',
+          image_url: imageUrl,
           lat: selectedLoc?.lat || null,
           lng: selectedLoc?.lng || null,
         })
@@ -96,7 +126,6 @@ export default function ReportIssue() {
       setSubmitted(true);
     } catch (err) {
       console.error('Report submission error:', err);
-      // Still show success for demo — data might not save without auth
       setReportId('NE-' + Date.now().toString().slice(-6));
       setSubmitted(true);
     } finally {
@@ -110,6 +139,37 @@ export default function ReportIssue() {
     setErrors({});
     setReportId('');
   };
+
+  // Show loading while checking auth
+  if (checkingAuth) {
+    return (
+      <div className="report-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 72px)' }}>
+        <Loader2 size={32} className="spin" style={{ color: 'var(--primary)' }} />
+      </div>
+    );
+  }
+
+  // Show login prompt if not logged in
+  if (!user) {
+    return (
+      <div className="report-page">
+        <div className="container">
+          <motion.div className="report-login-prompt card" initial="hidden" animate="visible" variants={fadeUp}>
+            <div className="report-login-prompt__icon">
+              <LogIn size={48} />
+            </div>
+            <h2 className="report-login-prompt__title">Login Required</h2>
+            <p className="report-login-prompt__desc">
+              You need to be logged in to report environmental issues. Your reports will be linked to your account so you can track their progress.
+            </p>
+            <button className="btn btn-primary btn-lg" onClick={() => navigate('/login')}>
+              <LogIn size={18} /> Sign In to Report
+            </button>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="report-page">
@@ -137,15 +197,20 @@ export default function ReportIssue() {
                   </div>
                   <h2 className="report-success__title">Report Submitted Successfully!</h2>
                   <p className="report-success__desc">
-                    Thank you for your contribution. Your report has been logged and will be reviewed by the concerned authorities. You will receive updates on the progress.
+                    Thank you for your contribution. Your report has been logged and will be reviewed by the concerned authorities. You can view it in your profile.
                   </p>
                   <div className="report-success__ref">
                     <span>Reference ID:</span>
                     <strong>{reportId}</strong>
                   </div>
-                  <button className="btn btn-primary" onClick={resetForm}>
-                    Submit Another Report
-                  </button>
+                  <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <button className="btn btn-primary" onClick={resetForm}>
+                      Submit Another Report
+                    </button>
+                    <button className="btn btn-ghost" onClick={() => navigate('/login')}>
+                      View My Reports
+                    </button>
+                  </div>
                 </motion.div>
               ) : (
                 <motion.form
