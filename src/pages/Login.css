@@ -19,6 +19,12 @@
   border-radius: var(--radius-xl);
   padding: 40px;
   box-shadow: var(--shadow-md);
+  transition: background 0.3s, border-color 0.3s;
+}
+
+[data-theme="dark"] .login-card {
+  background: #1e293b;
+  border-color: #334155;
 }
 
 .login-brand {
@@ -76,6 +82,10 @@
   box-shadow: var(--shadow-xs);
 }
 
+[data-theme="dark"] .login-tab--active {
+  background: #334155;
+}
+
 /* Form */
 .login-form .form-group {
   margin-bottom: 20px;
@@ -98,7 +108,17 @@
 
 .login-input:focus {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(15, 107, 138, 0.08);
+  box-shadow: 0 0 0 3px rgba(13, 148, 136, 0.1);
+}
+
+[data-theme="dark"] .login-input {
+  background: #0f172a;
+  border-color: #334155;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .login-input:focus {
+  box-shadow: 0 0 0 3px rgba(45, 212, 191, 0.15);
 }
 
 .login-password-wrap {
@@ -442,6 +462,11 @@
   padding: 16px;
   border-top: 1px solid var(--gray-100);
   background: #fff;
+  transition: background 0.3s;
+}
+
+[data-theme="dark"] .report-detail {
+  background: #1e293b;
 }
 
 .report-detail__grid {

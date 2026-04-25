@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Leaf, MapPin, BarChart3, Trophy, AlertCircle, MessageSquare, User } from 'lucide-react';
+import { Menu, X, Leaf, MapPin, BarChart3, Trophy, AlertCircle, MessageSquare, User, Sun, Moon } from 'lucide-react';
 import LeafLogo from './LeafLogo';
 import './Navbar.css';
 
@@ -16,6 +16,10 @@ const navLinks = [
 export default function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [dark, setDark] = useState(() => {
+    const saved = localStorage.getItem('nammaearth-theme');
+    return saved === 'dark';
+  });
   const location = useLocation();
 
   useEffect(() => {
@@ -27,6 +31,12 @@ export default function Navbar() {
   useEffect(() => {
     setIsOpen(false);
   }, [location.pathname]);
+
+  // Apply dark mode
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    localStorage.setItem('nammaearth-theme', dark ? 'dark' : 'light');
+  }, [dark]);
 
   return (
     <nav className={`navbar ${scrolled ? 'navbar--scrolled' : ''}`}>
@@ -58,9 +68,18 @@ export default function Navbar() {
           </Link>
         </div>
 
-        <button className="navbar__toggle" onClick={() => setIsOpen(!isOpen)} aria-label="Toggle menu">
-          {isOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
+        <div className="navbar__actions">
+          <button
+            className="theme-toggle"
+            onClick={() => setDark(!dark)}
+            aria-label={dark ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {dark ? <Sun size={18} /> : <Moon size={18} />}
+          </button>
+          <button className="navbar__toggle" onClick={() => setIsOpen(!isOpen)} aria-label="Toggle menu">
+            {isOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+        </div>
       </div>
     </nav>
   );

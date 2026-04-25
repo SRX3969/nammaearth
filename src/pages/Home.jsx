@@ -126,6 +126,22 @@ export default function Home() {
         <div className="hero__bg">
           <div className="hero__bg-grid" />
           <div className="hero__bg-glow" />
+          <div className="hero__particles">
+            {[...Array(10)].map((_, i) => (
+              <div
+                key={i}
+                className="hero__particle"
+                style={{
+                  left: `${8 + i * 9}%`,
+                  animationDuration: `${10 + (i % 5) * 4}s`,
+                  animationDelay: `${(i * 1.3) % 7}s`,
+                  opacity: 0.06 + (i % 3) * 0.04,
+                  width: `${6 + (i % 4) * 4}px`,
+                  height: `${6 + (i % 4) * 4}px`,
+                }}
+              />
+            ))}
+          </div>
         </div>
         <div className="hero__content container">
           <motion.div
