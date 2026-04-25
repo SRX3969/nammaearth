@@ -497,3 +497,195 @@
 .image-preview-remove:hover {
   background: #fef2f2;
 }
+
+/* ===== VERIFICATION PANEL ===== */
+.verification-panel {
+  border-top: 1px solid var(--gray-200);
+  padding: 16px;
+  animation: slideUp 0.3s ease;
+}
+
+.verification-panel--loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--primary);
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: 14px 16px;
+  background: var(--primary-50);
+}
+
+.verification-panel--genuine { background: #f0fdf4; }
+.verification-panel--needs-review { background: #fffbeb; }
+.verification-panel--suspicious { background: #fef2f2; }
+
+[data-theme="dark"] .verification-panel--genuine { background: rgba(34, 197, 94, 0.08); }
+[data-theme="dark"] .verification-panel--needs-review { background: rgba(234, 179, 8, 0.08); }
+[data-theme="dark"] .verification-panel--suspicious { background: rgba(239, 68, 68, 0.08); }
+
+/* Verification Header */
+.verification-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.verification-header__left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.verification-panel--genuine .verification-header__left svg { color: #16a34a; }
+.verification-panel--needs-review .verification-header__left svg { color: #d97706; }
+.verification-panel--suspicious .verification-header__left svg { color: #dc2626; }
+
+.verification-header__status {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--gray-900);
+}
+
+.verification-header__sub {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--gray-500);
+  margin-top: 1px;
+}
+
+/* Score Ring */
+.verification-score-ring {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+}
+
+.verification-score-svg {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.verification-score-bg {
+  fill: none;
+  stroke: var(--gray-200);
+  stroke-width: 3;
+}
+
+.verification-score-fill {
+  fill: none;
+  stroke-width: 3;
+  stroke-linecap: round;
+  transition: stroke-dasharray 1s ease;
+}
+
+.verification-panel--genuine .verification-score-fill { stroke: #16a34a; }
+.verification-panel--needs-review .verification-score-fill { stroke: #d97706; }
+.verification-panel--suspicious .verification-score-fill { stroke: #dc2626; }
+
+.verification-score-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--gray-800);
+}
+
+/* Check List */
+.verification-checks {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.vcheck {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8125rem;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+}
+
+.vcheck__step {
+  font-weight: 600;
+  color: var(--gray-700);
+  min-width: 120px;
+}
+
+.vcheck__detail {
+  color: var(--gray-500);
+  font-size: 0.75rem;
+}
+
+.vcheck-icon--pass { color: #16a34a; }
+.vcheck-icon--fail { color: #dc2626; }
+.vcheck-icon--warn { color: #d97706; }
+
+/* AI Detection */
+.verification-ai {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(13, 148, 136, 0.06);
+  border-radius: var(--radius-sm);
+  font-size: 0.8125rem;
+  color: var(--gray-700);
+}
+
+.verification-ai svg { color: var(--primary); flex-shrink: 0; }
+
+.verification-ai__conf {
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--primary);
+  font-size: 0.75rem;
+}
+
+/* Verification Badge (Success Screen) */
+.verification-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius-full);
+  font-size: 0.875rem;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.verification-badge--genuine {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.verification-badge--needs-review {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.verification-badge--suspicious {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+.verification-badge__score {
+  font-weight: 500;
+  opacity: 0.8;
+  font-size: 0.8125rem;
+}
+
+[data-theme="dark"] .verification-badge--genuine { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+[data-theme="dark"] .verification-badge--needs-review { background: rgba(234, 179, 8, 0.15); color: #fbbf24; }
+[data-theme="dark"] .verification-badge--suspicious { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+

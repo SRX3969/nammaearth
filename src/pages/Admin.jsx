@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
   Shield, AlertCircle, MapPin, Clock, Check, X, Eye, Image as ImageIcon,
-  FileText, Loader2, ChevronDown, ChevronUp, Filter
+  FileText, Loader2, ChevronDown, ChevronUp, Filter,
+  ShieldCheck, ShieldAlert, ShieldX, Fingerprint
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import './Admin.css';
@@ -50,8 +51,6 @@ export default function Admin() {
       .eq('id', reportId);
 
     if (!error) {
-      setReports(prev => prev.map(r => r.id === reportId ? { ...r, status: newStatus } : r));
-      // Recalculate stats
       setReports(prev => {
         const updated = prev.map(r => r.id === reportId ? { ...r, status: newStatus } : r);
         setStats({
@@ -67,6 +66,24 @@ export default function Admin() {
   };
 
   const filteredReports = filter === 'All' ? reports : reports.filter(r => r.status === filter);
+
+  const getVerificationBadge = (report) => {
+    const status = report.verification_status;
+    const score = report.verification_score;
+    if (!status && score == null) return null;
+
+    const config = {
+      'Genuine': { icon: <ShieldCheck size={14} />, cls: 'admin-verify--genuine' },
+      'Needs Review': { icon: <ShieldAlert size={14} />, cls: 'admin-verify--review' },
+      'Suspicious': { icon: <ShieldX size={14} />, cls: 'admin-verify--suspicious' },
+    };
+    const c = config[status] || config['Needs Review'];
+    return (
+      <span className={`admin-verify-badge ${c.cls}`}>
+        {c.icon} {score ?? '?'}/100
+      </span>
+    );
+  };
 
   if (loading) {
     return (
@@ -133,6 +150,7 @@ export default function Admin() {
                     </span>
                   </div>
                   <div className="admin-report__right">
+                    {getVerificationBadge(report)}
                     <span className={`badge ${
                       report.status === 'Resolved' ? 'badge-success' :
                       report.status === 'In Progress' ? 'badge-warning' :
@@ -166,6 +184,58 @@ export default function Admin() {
                         </span>
                       </div>
                     </div>
+
+                    {/* ── Verification Section ── */}
+                    {report.verification_score != null && (
+                      <div className={`admin-verification admin-verification--${(report.verification_status || 'genuine').toLowerCase().replace(' ', '-')}`}>
+                        <div className="admin-verification__header">
+                          <Fingerprint size={15} />
+                          <span className="admin-verification__title">Image Verification</span>
+                          <span className={`admin-verify-badge admin-verify--${(report.verification_status || 'genuine').toLowerCase().replace(' ', '-')}`}>
+                            {report.verification_status === 'Genuine' && <ShieldCheck size={13} />}
+                            {report.verification_status === 'Needs Review' && <ShieldAlert size={13} />}
+                            {report.verification_status === 'Suspicious' && <ShieldX size={13} />}
+                            {report.verification_status || 'Unknown'} — {report.verification_score}/100
+                          </span>
+                        </div>
+                        <div className="admin-verification__grid">
+                          <div className="admin-vfield">
+                            <span className="admin-vfield__label">Metadata Valid</span>
+                            <span className={`admin-vfield__value ${report.metadata_valid ? 'admin-vfield--pass' : 'admin-vfield--fail'}`}>
+                              {report.metadata_valid ? '✓ Valid' : '✗ Invalid'}
+                            </span>
+                          </div>
+                          <div className="admin-vfield">
+                            <span className="admin-vfield__label">Location Match</span>
+                            <span className={`admin-vfield__value ${report.location_match ? 'admin-vfield--pass' : 'admin-vfield--fail'}`}>
+                              {report.location_match ? '✓ Matched' : '✗ Mismatch'}
+                            </span>
+                          </div>
+                          <div className="admin-vfield">
+                            <span className="admin-vfield__label">Duplicate</span>
+                            <span className={`admin-vfield__value ${!report.is_duplicate ? 'admin-vfield--pass' : 'admin-vfield--fail'}`}>
+                              {report.is_duplicate ? '✗ Duplicate' : '✓ Original'}
+                            </span>
+                          </div>
+                          <div className="admin-vfield">
+                            <span className="admin-vfield__label">Screenshot</span>
+                            <span className={`admin-vfield__value ${!report.is_screenshot ? 'admin-vfield--pass' : 'admin-vfield--fail'}`}>
+                              {report.is_screenshot ? '✗ Screenshot' : '✓ Camera'}
+                            </span>
+                          </div>
+                          <div className="admin-vfield">
+                            <span className="admin-vfield__label">AI Detected</span>
+                            <span className="admin-vfield__value">{report.ai_detected_issue || '—'}</span>
+                          </div>
+                          <div className="admin-vfield">
+                            <span className="admin-vfield__label">AI Confidence</span>
+                            <span className={`admin-vfield__value ${(report.ai_confidence || 0) >= 0.6 ? 'admin-vfield--pass' : 'admin-vfield--fail'}`}>
+                              {report.ai_confidence ? `${Math.round(report.ai_confidence * 100)}%` : '—'}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
 
                     {report.description && (
                       <div className="admin-report__desc">

@@ -283,3 +283,114 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ===== VERIFICATION BADGE (Row) ===== */
+.admin-verify-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.admin-verify--genuine {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.admin-verify--review,
+.admin-verify--needs-review {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.admin-verify--suspicious {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+[data-theme="dark"] .admin-verify--genuine { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+[data-theme="dark"] .admin-verify--review,
+[data-theme="dark"] .admin-verify--needs-review { background: rgba(234, 179, 8, 0.15); color: #fbbf24; }
+[data-theme="dark"] .admin-verify--suspicious { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+
+/* ===== VERIFICATION SECTION (Expanded) ===== */
+.admin-verification {
+  margin-bottom: 20px;
+  padding: 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid;
+}
+
+.admin-verification--genuine {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.admin-verification--needs-review {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.admin-verification--suspicious {
+  background: #fef2f2;
+  border-color: #fecaca;
+}
+
+[data-theme="dark"] .admin-verification--genuine { background: rgba(34, 197, 94, 0.06); border-color: rgba(34, 197, 94, 0.2); }
+[data-theme="dark"] .admin-verification--needs-review { background: rgba(234, 179, 8, 0.06); border-color: rgba(234, 179, 8, 0.2); }
+[data-theme="dark"] .admin-verification--suspicious { background: rgba(239, 68, 68, 0.06); border-color: rgba(239, 68, 68, 0.2); }
+
+.admin-verification__header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  font-size: 0.8125rem;
+  color: var(--gray-600);
+}
+
+.admin-verification__title {
+  font-weight: 700;
+  color: var(--gray-800);
+  margin-right: auto;
+}
+
+.admin-verification__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.admin-vfield {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.admin-vfield__label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--gray-400);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.admin-vfield__value {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gray-700);
+}
+
+.admin-vfield--pass { color: #16a34a !important; }
+.admin-vfield--fail { color: #dc2626 !important; }
+
+@media (max-width: 640px) {
+  .admin-verification__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
