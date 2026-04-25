@@ -1,15 +1,18 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Trash2, Wind, Volume2, Droplets, Flame, AlertTriangle,
-  Upload, MapPin, Send, CheckCircle, Camera, X, FileText, Loader2, LogIn
+  Upload, MapPin, Send, CheckCircle, Camera, X, FileText, Loader2, LogIn,
+  Crosshair, Image as ImageIcon, AlertOctagon
 } from 'lucide-react';
 import { issueTypes, locations } from '../data/locations';
 import { supabase } from '../lib/supabase';
 import './ReportIssue.css';
 
 const iconMap = { Trash2, Wind, Volume2, Droplets, Flame, AlertTriangle };
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const ALLOWED_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -18,21 +21,29 @@ const fadeUp = {
 
 export default function ReportIssue() {
   const navigate = useNavigate();
+  const fileInputRef = useRef(null);
+  const cameraInputRef = useRef(null);
   const [user, setUser] = useState(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [form, setForm] = useState({
     issueType: '',
     location: '',
     description: '',
+    severity: 'Medium',
     image: null,
     imageName: '',
+    imagePreview: null,
+    lat: null,
+    lng: null,
   });
   const [submitted, setSubmitted] = useState(false);
   const [errors, setErrors] = useState({});
   const [loading, setLoading] = useState(false);
   const [reportId, setReportId] = useState('');
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState('');
+  const [duplicateWarning, setDuplicateWarning] = useState('');
 
-  // Check if user is logged in
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -44,23 +55,101 @@ export default function ReportIssue() {
 
   const handleChange = (field, value) => {
     setForm(prev => ({ ...prev, [field]: value }));
-    if (errors[field]) {
-      setErrors(prev => ({ ...prev, [field]: null }));
-    }
+    if (errors[field]) setErrors(prev => ({ ...prev, [field]: null }));
   };
 
+  // File validation
+  const validateFile = (file) => {
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      setErrors(prev => ({ ...prev, image: 'Only JPG, JPEG, and PNG files are allowed.' }));
+      return false;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      setErrors(prev => ({ ...prev, image: 'File size must be under 5MB.' }));
+      return false;
+    }
+    setErrors(prev => ({ ...prev, image: null }));
+    return true;
+  };
+
+  // Handle image from file upload
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
-    if (file) {
-      handleChange('image', file);
-      handleChange('imageName', file.name);
-    }
+    if (!file) return;
+    if (!validateFile(file)) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setForm(prev => ({ ...prev, image: file, imageName: file.name, imagePreview: reader.result }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Handle image from camera
+  const handleCameraCapture = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (!validateFile(file)) return;
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setForm(prev => ({ ...prev, image: file, imageName: file.name, imagePreview: reader.result }));
+    };
+    reader.readAsDataURL(file);
   };
 
   const removeImage = () => {
-    handleChange('image', null);
-    handleChange('imageName', '');
+    setForm(prev => ({ ...prev, image: null, imageName: '', imagePreview: null }));
+    setErrors(prev => ({ ...prev, image: null }));
   };
+
+  // GPS Auto-detection
+  const detectLocation = () => {
+    if (!navigator.geolocation) {
+      setGpsError('Geolocation is not supported by your browser.');
+      return;
+    }
+    setGpsLoading(true);
+    setGpsError('');
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setForm(prev => ({
+          ...prev,
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        }));
+        setGpsLoading(false);
+      },
+      (err) => {
+        setGpsError('Unable to detect location. Please select manually.');
+        setGpsLoading(false);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  // Check for duplicate reports
+  const checkDuplicate = async () => {
+    if (!form.location || !form.issueType) return;
+    const issueLabel = issueTypes.find(t => t.id === form.issueType)?.label || '';
+    const { data } = await supabase
+      .from('reports')
+      .select('id, created_at')
+      .eq('type', issueLabel)
+      .eq('location', form.location)
+      .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+      .limit(1);
+    if (data && data.length > 0) {
+      setDuplicateWarning('⚠️ A similar issue was already reported at this location in the last 24 hours. You can still submit if this is a different occurrence.');
+    } else {
+      setDuplicateWarning('');
+    }
+  };
+
+  // Run duplicate check when location or issue type changes
+  useEffect(() => {
+    if (form.location && form.issueType) {
+      checkDuplicate();
+    }
+  }, [form.location, form.issueType]);
 
   const validate = () => {
     const newErrors = {};
@@ -75,7 +164,6 @@ export default function ReportIssue() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
-
     setLoading(true);
 
     try {
@@ -90,7 +178,6 @@ export default function ReportIssue() {
         const { error: uploadError } = await supabase.storage
           .from('report-images')
           .upload(fileName, form.image);
-
         if (!uploadError) {
           const { data: urlData } = supabase.storage
             .from('report-images')
@@ -99,11 +186,9 @@ export default function ReportIssue() {
         }
       }
 
-      // Find the selected issue type label
       const issueLabel = issueTypes.find(t => t.id === form.issueType)?.label || form.issueType;
       const selectedLoc = locations.find(l => l.name === form.location);
 
-      // Insert report into Supabase
       const { data, error } = await supabase
         .from('reports')
         .insert({
@@ -111,17 +196,16 @@ export default function ReportIssue() {
           type: issueLabel,
           location: form.location,
           description: form.description,
-          severity: 'Medium',
+          severity: form.severity,
           status: 'Submitted',
           image_url: imageUrl,
-          lat: selectedLoc?.lat || null,
-          lng: selectedLoc?.lng || null,
+          lat: form.lat || selectedLoc?.lat || null,
+          lng: form.lng || selectedLoc?.lng || null,
         })
         .select()
         .single();
 
       if (error) throw error;
-
       setReportId(data?.id?.slice(0, 8).toUpperCase() || Date.now().toString().slice(-6));
       setSubmitted(true);
     } catch (err) {
@@ -134,13 +218,13 @@ export default function ReportIssue() {
   };
 
   const resetForm = () => {
-    setForm({ issueType: '', location: '', description: '', image: null, imageName: '' });
+    setForm({ issueType: '', location: '', description: '', severity: 'Medium', image: null, imageName: '', imagePreview: null, lat: null, lng: null });
     setSubmitted(false);
     setErrors({});
     setReportId('');
+    setDuplicateWarning('');
   };
 
-  // Show loading while checking auth
   if (checkingAuth) {
     return (
       <div className="report-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 72px)' }}>
@@ -149,15 +233,12 @@ export default function ReportIssue() {
     );
   }
 
-  // Show login prompt if not logged in
   if (!user) {
     return (
       <div className="report-page">
         <div className="container">
           <motion.div className="report-login-prompt card" initial="hidden" animate="visible" variants={fadeUp}>
-            <div className="report-login-prompt__icon">
-              <LogIn size={48} />
-            </div>
+            <div className="report-login-prompt__icon"><LogIn size={48} /></div>
             <h2 className="report-login-prompt__title">Login Required</h2>
             <p className="report-login-prompt__desc">
               You need to be logged in to report environmental issues. Your reports will be linked to your account so you can track their progress.
@@ -185,61 +266,46 @@ export default function ReportIssue() {
           <motion.div className="report-form-area" initial="hidden" animate="visible" variants={fadeUp}>
             <AnimatePresence mode="wait">
               {submitted ? (
-                <motion.div
-                  className="report-success card"
-                  key="success"
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.95 }}
-                >
-                  <div className="report-success__icon">
-                    <CheckCircle size={48} />
-                  </div>
+                <motion.div className="report-success card" key="success"
+                  initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.95 }}>
+                  <div className="report-success__icon"><CheckCircle size={48} /></div>
                   <h2 className="report-success__title">Report Submitted Successfully!</h2>
                   <p className="report-success__desc">
-                    Thank you for your contribution. Your report has been logged and will be reviewed by the concerned authorities. You can view it in your profile.
+                    Thank you for your contribution. Your report has been logged and will be reviewed by the concerned authorities. Track its status in your profile.
                   </p>
                   <div className="report-success__ref">
-                    <span>Reference ID:</span>
+                    <span>Tracking ID:</span>
                     <strong>{reportId}</strong>
                   </div>
                   <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                    <button className="btn btn-primary" onClick={resetForm}>
-                      Submit Another Report
-                    </button>
-                    <button className="btn btn-ghost" onClick={() => navigate('/login')}>
-                      View My Reports
-                    </button>
+                    <button className="btn btn-primary" onClick={resetForm}>Submit Another Report</button>
+                    <button className="btn btn-ghost" onClick={() => navigate('/login')}>View My Reports</button>
                   </div>
                 </motion.div>
               ) : (
-                <motion.form
-                  className="report-form card"
-                  key="form"
-                  onSubmit={handleSubmit}
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                >
+                <motion.form className="report-form card" key="form" onSubmit={handleSubmit}
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+
+                  {/* Duplicate Warning */}
+                  {duplicateWarning && (
+                    <div className="duplicate-warning">
+                      <AlertOctagon size={16} />
+                      <span>{duplicateWarning}</span>
+                    </div>
+                  )}
+
                   {/* Issue Type */}
                   <div className="form-group">
-                    <label className="form-label">
-                      <AlertTriangle size={15} />
-                      Issue Type *
-                    </label>
+                    <label className="form-label"><AlertTriangle size={15} /> Issue Type *</label>
                     <div className="issue-type-grid">
                       {issueTypes.map(type => {
                         const Icon = iconMap[type.icon] || AlertTriangle;
                         return (
-                          <button
-                            key={type.id}
-                            type="button"
+                          <button key={type.id} type="button"
                             className={`issue-type-btn ${form.issueType === type.id ? 'issue-type-btn--active' : ''}`}
                             onClick={() => handleChange('issueType', type.id)}
-                            style={{ '--type-color': type.color }}
-                          >
-                            <Icon size={20} />
-                            <span>{type.label}</span>
+                            style={{ '--type-color': type.color }}>
+                            <Icon size={20} /><span>{type.label}</span>
                           </button>
                         );
                       })}
@@ -247,71 +313,88 @@ export default function ReportIssue() {
                     {errors.issueType && <span className="form-error">{errors.issueType}</span>}
                   </div>
 
-                  {/* Location */}
+                  {/* Location + GPS */}
                   <div className="form-group">
-                    <label className="form-label">
-                      <MapPin size={15} />
-                      Location *
-                    </label>
-                    <select
-                      className="form-select"
-                      value={form.location}
-                      onChange={e => handleChange('location', e.target.value)}
-                    >
+                    <label className="form-label"><MapPin size={15} /> Location *</label>
+                    <select className="form-select" value={form.location}
+                      onChange={e => handleChange('location', e.target.value)}>
                       <option value="">Select a locality</option>
                       {locations.map(loc => (
                         <option key={loc.id} value={loc.name}>{loc.name}</option>
                       ))}
                     </select>
+
+                    <div className="gps-row">
+                      <button type="button" className="btn btn-ghost gps-btn" onClick={detectLocation} disabled={gpsLoading}>
+                        {gpsLoading ? <Loader2 size={14} className="spin" /> : <Crosshair size={14} />}
+                        {gpsLoading ? 'Detecting...' : 'Use My Location'}
+                      </button>
+                      {form.lat && form.lng && (
+                        <span className="gps-coords">📍 {form.lat.toFixed(4)}, {form.lng.toFixed(4)}</span>
+                      )}
+                    </div>
+                    {gpsError && <span className="form-error">{gpsError}</span>}
                     {errors.location && <span className="form-error">{errors.location}</span>}
+                  </div>
+
+                  {/* Severity */}
+                  <div className="form-group">
+                    <label className="form-label"><AlertTriangle size={15} /> Severity Level</label>
+                    <div className="severity-grid">
+                      {['Low', 'Medium', 'High'].map(level => (
+                        <button key={level} type="button"
+                          className={`severity-btn severity-btn--${level.toLowerCase()} ${form.severity === level ? 'severity-btn--active' : ''}`}
+                          onClick={() => handleChange('severity', level)}>
+                          {level}
+                        </button>
+                      ))}
+                    </div>
                   </div>
 
                   {/* Description */}
                   <div className="form-group">
-                    <label className="form-label">
-                      <FileText size={15} />
-                      Description *
-                    </label>
-                    <textarea
-                      className="form-textarea"
+                    <label className="form-label"><FileText size={15} /> Description *</label>
+                    <textarea className="form-textarea"
                       placeholder="Describe the issue in detail. Include specific location details, severity, and when you noticed it."
-                      rows={5}
-                      value={form.description}
-                      onChange={e => handleChange('description', e.target.value)}
-                    />
+                      rows={5} value={form.description} maxLength={500}
+                      onChange={e => handleChange('description', e.target.value)} />
                     <div className="form-hint">{form.description.length}/500 characters</div>
                     {errors.description && <span className="form-error">{errors.description}</span>}
                   </div>
 
-                  {/* Image Upload */}
+                  {/* Image Upload + Camera */}
                   <div className="form-group">
-                    <label className="form-label">
-                      <Camera size={15} />
-                      Upload Photo (Optional)
-                    </label>
-                    {form.imageName ? (
-                      <div className="upload-preview">
-                        <div className="upload-preview__info">
-                          <Camera size={16} />
-                          <span>{form.imageName}</span>
+                    <label className="form-label"><Camera size={15} /> Upload Photo (Optional)</label>
+
+                    {form.imagePreview ? (
+                      <div className="image-preview-container">
+                        <img src={form.imagePreview} alt="Preview" className="image-preview" />
+                        <div className="image-preview-info">
+                          <span className="image-preview-name">{form.imageName}</span>
+                          <span className="image-preview-size">{(form.image.size / 1024).toFixed(0)} KB</span>
                         </div>
-                        <button type="button" className="upload-preview__remove" onClick={removeImage}>
-                          <X size={14} />
+                        <button type="button" className="btn btn-ghost image-preview-remove" onClick={removeImage}>
+                          <X size={14} /> Remove
                         </button>
                       </div>
                     ) : (
-                      <label className="upload-area">
-                        <Upload size={24} />
-                        <span className="upload-area__title">Click to upload photo</span>
-                        <span className="upload-area__hint">JPG, PNG up to 10MB</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleImageUpload}
-                          className="upload-area__input"
-                        />
-                      </label>
+                      <div className="upload-options">
+                        <label className="upload-option">
+                          <Camera size={22} />
+                          <span>Take Photo</span>
+                          <input type="file" accept="image/*" capture="environment"
+                            ref={cameraInputRef} onChange={handleCameraCapture} className="upload-area__input" />
+                        </label>
+                        <label className="upload-option">
+                          <Upload size={22} />
+                          <span>Upload Image</span>
+                          <input type="file" accept=".jpg,.jpeg,.png"
+                            ref={fileInputRef} onChange={handleImageUpload} className="upload-area__input" />
+                        </label>
+                      </div>
                     )}
+                    <div className="form-hint" style={{ textAlign: 'left' }}>JPG, PNG — Max 5MB</div>
+                    {errors.image && <span className="form-error">{errors.image}</span>}
                   </div>
 
                   <button type="submit" className="btn btn-primary btn-lg report-submit" disabled={loading}>
@@ -333,9 +416,9 @@ export default function ReportIssue() {
               <div className="report-steps">
                 {[
                   { num: 1, title: 'Select Issue Type', desc: 'Choose the category that best matches your observation.' },
-                  { num: 2, title: 'Pick Location', desc: 'Select the locality where you noticed the issue.' },
-                  { num: 3, title: 'Add Details', desc: 'Describe the problem and optionally upload a photo.' },
-                  { num: 4, title: 'Submit & Track', desc: 'Your report is sent to authorities. Track progress with your reference ID.' },
+                  { num: 2, title: 'Pick Location', desc: 'Select the locality or use GPS auto-detect.' },
+                  { num: 3, title: 'Add Details & Photo', desc: 'Describe the problem and take a photo or upload one.' },
+                  { num: 4, title: 'Submit & Track', desc: 'Track your report status in your profile dashboard.' },
                 ].map(step => (
                   <div key={step.num} className="report-step">
                     <div className="report-step__num">{step.num}</div>

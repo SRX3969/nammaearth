@@ -8,6 +8,7 @@ import Leaderboard from './pages/Leaderboard';
 import ReportIssue from './pages/ReportIssue';
 import Chat from './pages/Chat';
 import Login from './pages/Login';
+import Admin from './pages/Admin';
 import './App.css';
 
 // Pages where footer should be hidden (full-height layouts)
@@ -29,6 +30,7 @@ function App() {
           <Route path="/report" element={<ReportIssue />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/login" element={<Login />} />
+          <Route path="/admin" element={<Admin />} />
         </Routes>
       </main>
       {!hideFooter && <Footer />}
