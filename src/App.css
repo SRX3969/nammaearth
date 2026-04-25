@@ -1,0 +1,23 @@
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.main-content {
+  flex: 1;
+  padding-top: 72px; /* navbar height */
+}
+
+/* For full-height pages like Chat and Map — no footer, content fills viewport */
+.app--full-height {
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app--full-height .main-content {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
