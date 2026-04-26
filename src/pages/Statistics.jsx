@@ -145,11 +145,11 @@ export default function Statistics() {
       try {
         const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
         if (!apiKey) return;
-        const prompt = `Based on the following current environmental data for ${currentLoc.name} in Bengaluru, predict the AQI for tomorrow and give a short 1-sentence explanation.
+        const prompt = `Based on the following current environmental data for ${currentLoc.name} in Bengaluru, predict tomorrow's conditions. Give a short 1-sentence explanation.
 Current AQI: ${liveAQI.aqi}
 Current Temp: ${liveWeather.temperature}°C
 Current Humidity: ${liveWeather.humidity}%
-Respond strictly in JSON format like: {"prediction": 120, "explanation": "AQI will likely rise due to falling humidity holding PM2.5 closer to the ground."}`;
+Respond strictly in JSON format like: {"prediction": 120, "temp": 32, "humidity": 55, "risk": "Moderate", "explanation": "AQI will likely rise due to falling humidity holding PM2.5 closer to the ground."}`;
         
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
           method: 'POST',
@@ -172,8 +172,8 @@ Respond strictly in JSON format like: {"prediction": 120, "explanation": "AQI wi
       }
     };
     
-    // Slight debounce to ensure data is settled
-    const timeoutId = setTimeout(fetchForecast, 1000);
+    // Minimal debounce for fast loading
+    const timeoutId = setTimeout(fetchForecast, 50);
     return () => clearTimeout(timeoutId);
   }, [liveAQI, liveWeather, currentLoc]);
 
@@ -298,14 +298,27 @@ Respond strictly in JSON format like: {"prediction": 120, "explanation": "AQI wi
             {loadingForecast && <Loader2 size={16} className="spin" style={{ color: '#0284c7', marginLeft: 'auto' }} />}
           </div>
           {aiForecast && !loadingForecast && (
-            <div style={{ display: 'flex', gap: '24px', alignItems: 'center', marginTop: '16px' }}>
-              <div style={{ textAlign: 'center', background: 'white', padding: '16px', borderRadius: '12px', minWidth: '120px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-                <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Predicted AQI</div>
-                <div style={{ fontSize: '2rem', fontWeight: 800, color: getAQIColor(aiForecast.prediction), lineHeight: 1.2 }}>{aiForecast.prediction}</div>
+            <div style={{ display: 'flex', gap: '24px', alignItems: 'center', marginTop: '16px', flexWrap: 'wrap' }}>
+              <div style={{ textAlign: 'center', background: 'white', padding: '16px', borderRadius: '12px', minWidth: '110px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                <div style={{ fontSize: '0.80rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>AQI</div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 800, color: getAQIColor(aiForecast.prediction), lineHeight: 1.2 }}>{aiForecast.prediction}</div>
               </div>
-              <p style={{ margin: 0, color: '#334155', fontSize: '1rem', lineHeight: 1.5, flex: 1 }}>
-                {aiForecast.explanation}
-              </p>
+              <div style={{ textAlign: 'center', background: 'white', padding: '16px', borderRadius: '12px', minWidth: '110px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                <div style={{ fontSize: '0.80rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Temp</div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#e8873a', lineHeight: 1.2 }}>{aiForecast.temp}°C</div>
+              </div>
+              <div style={{ textAlign: 'center', background: 'white', padding: '16px', borderRadius: '12px', minWidth: '110px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                <div style={{ fontSize: '0.80rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Humidity</div>
+                <div style={{ fontSize: '1.8rem', fontWeight: 800, color: '#3b82f6', lineHeight: 1.2 }}>{aiForecast.humidity}%</div>
+              </div>
+              <div style={{ flex: '1 1 300px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0369a1', textTransform: 'uppercase' }}>Risk Level: {aiForecast.risk}</span>
+                </div>
+                <p style={{ margin: 0, color: '#334155', fontSize: '0.95rem', lineHeight: 1.5 }}>
+                  {aiForecast.explanation}
+                </p>
+              </div>
             </div>
           )}
         </motion.div>
