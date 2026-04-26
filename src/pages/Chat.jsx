@@ -8,7 +8,7 @@ import './Chat.css';
 
 const SUGGESTED_QUESTIONS = [
   'Which area in Bengaluru has the worst AQI right now?',
-  'Give me a recipe for a vegan burger',
+  'How can I reduce my carbon footprint today?',
   'Suggest a low-pollution route from Indiranagar to Whitefield',
 ];
 
