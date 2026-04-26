@@ -82,18 +82,11 @@ export default function Admin() {
       .select('*')
       .order('created_at', { ascending: false });
 
-    // Fetch user profiles to get names and emails
-    const { data: profilesData } = await supabase.from('profiles').select('id, name, email');
-    const profileMap = {};
-    if (profilesData) {
-      profilesData.forEach(p => { profileMap[p.id] = p; });
-    }
-
     if (!error && data) {
       const enrichedReports = data.map(r => ({
         ...r,
-        user_name: profileMap[r.user_id]?.name || 'Citizen',
-        user_email: profileMap[r.user_id]?.email || 'Citizen Email Not Available'
+        user_name: r.user_name || 'Citizen',
+        user_email: r.user_email || 'Citizen Email Not Available'
       }));
       
       setReports(enrichedReports);

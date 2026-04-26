@@ -268,9 +268,18 @@ export default function ReportIssue() {
       const issueLabel = issueTypes.find(t => t.id === form.issueType)?.label || form.issueType;
       const selectedLoc = locations.find(l => l.name === form.location);
 
+      // Fetch user profile data to attach to the report
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('name, email')
+        .eq('id', currentUser.id)
+        .single();
+
       // Build report data with verification fields
       const reportData = {
         user_id: currentUser.id,
+        user_name: userProfile?.name || currentUser.user_metadata?.name || 'Citizen',
+        user_email: userProfile?.email || currentUser.email || 'No Email',
         type: issueLabel,
         location: form.location,
         description: form.description,
