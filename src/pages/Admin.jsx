@@ -81,14 +81,27 @@ export default function Admin() {
       .select('*')
       .order('created_at', { ascending: false });
 
+    // Fetch user profiles to get names and emails
+    const { data: profilesData } = await supabase.from('profiles').select('id, name, email');
+    const profileMap = {};
+    if (profilesData) {
+      profilesData.forEach(p => { profileMap[p.id] = p; });
+    }
+
     if (!error && data) {
-      setReports(data);
+      const enrichedReports = data.map(r => ({
+        ...r,
+        user_name: profileMap[r.user_id]?.name || 'Citizen',
+        user_email: profileMap[r.user_id]?.email || 'Citizen Email Not Available'
+      }));
+      
+      setReports(enrichedReports);
       setStats({
-        total: data.length,
-        submitted: data.filter(r => r.status === 'Submitted').length,
-        inProgress: data.filter(r => r.status === 'In Progress').length,
-        resolved: data.filter(r => r.status === 'Resolved').length,
-        rejected: data.filter(r => r.status === 'Rejected').length,
+        total: enrichedReports.length,
+        submitted: enrichedReports.filter(r => r.status === 'Submitted').length,
+        inProgress: enrichedReports.filter(r => r.status === 'In Progress').length,
+        resolved: enrichedReports.filter(r => r.status === 'Resolved').length,
+        rejected: enrichedReports.filter(r => r.status === 'Rejected').length,
       });
     }
     setLoading(false);
@@ -109,9 +122,9 @@ export default function Admin() {
     // Note: In a real production environment, this triggers EmailJS or a Supabase Edge Function
     // For this demonstration, we simulate the email sending network request and log the exact template
     console.log("=========================================");
-    console.log(`✉️ EMAIL SENT TO: Citizen (User ID: ${report.user_id})`);
+    console.log(`✉️ EMAIL SENT TO: ${report.user_name} (${report.user_email})`);
     console.log(`SUBJECT: Update regarding your NammaEarth Report (ID: #${report.id.substring(0,8)})`);
-    console.log(`\nDear Citizen,`);
+    console.log(`\nDear ${report.user_name},`);
     console.log(`\nThank you so much for taking the time to keep Bengaluru clean and safe. We truly appreciate your active participation in the NammaEarth community.`);
     console.log(`\nWe are writing to inform you that the status of your report regarding [${report.type}] at [${report.location}] has been updated to: **${newStatus}**.`);
     if (message) {
@@ -337,6 +350,13 @@ export default function Admin() {
                       <div className="admin-detail">
                         <span className="admin-detail__label"><MapPin size={13} /> Location</span>
                         <span className="admin-detail__value">{report.location}</span>
+                      </div>
+                      <div className="admin-detail">
+                        <span className="admin-detail__label"><Fingerprint size={13} /> Reported By</span>
+                        <span className="admin-detail__value" style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontWeight: 600 }}>{report.user_name}</span>
+                          <span style={{ fontSize: '0.8rem', color: '#64748b' }}>{report.user_email}</span>
+                        </span>
                       </div>
                       <div className="admin-detail">
                         <span className="admin-detail__label">Severity</span>
