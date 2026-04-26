@@ -1,11 +1,17 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import {
-  Trophy, Medal, TrendingUp, TrendingDown, Users, AlertCircle,
-  ArrowUp, ArrowDown, MapPin, Award, Star, CheckCircle
-} from 'lucide-react';
+import { Trophy, Medal, TrendingUp, TrendingDown, Users, AlertCircle, ArrowUp, ArrowDown, MapPin, Award, Star, CheckCircle } from 'lucide-react';
 import { getLeaderboardData, getAQIColor } from '../data/locations';
+import { fetchAllLocalitiesAQI } from '../lib/liveDataService';
 import './Leaderboard.css';
+
+function getAQICategory(aqi) {
+  if (aqi <= 50) return { label: 'Good', color: '#4caf50', bg: '#e8f5e9' };
+  if (aqi <= 100) return { label: 'Satisfactory', color: '#8bc34a', bg: '#f1f8e9' };
+  if (aqi <= 200) return { label: 'Moderate', color: '#ff9800', bg: '#fff3e0' };
+  if (aqi <= 300) return { label: 'Poor', color: '#f44336', bg: '#ffebee' };
+  return { label: 'Very Poor', color: '#9c27b0', bg: '#f3e5f5' };
+}
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -18,7 +24,25 @@ export default function Leaderboard() {
   const [sortOrder, setSortOrder] = useState('asc');
 
   useEffect(() => {
-    setData(getLeaderboardData());
+    const fetchData = async () => {
+      const baseData = getLeaderboardData(); // Hardcoded consistent stats
+      const liveData = await fetchAllLocalitiesAQI(baseData); // Live AQI
+
+      const mergedData = baseData.map(baseLoc => {
+        const liveLoc = liveData?.find(l => l.name === baseLoc.name);
+        if (liveLoc && liveLoc.aqi != null) {
+          return {
+            ...baseLoc,
+            aqi: liveLoc.aqi,
+            category: getAQICategory(liveLoc.aqi),
+          };
+        }
+        return baseLoc; // Fallback to simulated if API fails
+      });
+
+      setData(mergedData);
+    };
+    fetchData();
   }, []);
 
   const sortedData = [...data].sort((a, b) => {
@@ -26,8 +50,8 @@ export default function Leaderboard() {
     return (a[sortBy] - b[sortBy]) * multiplier;
   });
 
-  const cleanest = data.length > 0 ? data[0] : null;
-  const mostPolluted = data.length > 0 ? data[data.length - 1] : null;
+  const cleanest = [...data].sort((a, b) => a.aqi - b.aqi)[0];
+  const mostPolluted = [...data].sort((a, b) => b.aqi - a.aqi)[0];
   const mostActive = [...data].sort((a, b) => b.activeUsers - a.activeUsers)[0];
   const mostReported = [...data].sort((a, b) => b.issuesReported - a.issuesReported)[0];
 

@@ -124,13 +124,19 @@ export const issueTypes = [
 // Leaderboard data
 export function getLeaderboardData() {
   const data = getLocationData();
-  return data.sort((a, b) => a.aqi - b.aqi).map((loc, i) => ({
-    rank: i + 1,
-    ...loc,
-    issuesReported: Math.floor(Math.random() * 120) + 5,
-    activeUsers: Math.floor(Math.random() * 500) + 50,
-    resolvedIssues: Math.floor(Math.random() * 80) + 10,
-  }));
+  return data.map((loc) => {
+    // Generate consistent hardcoded stats per locality using the seed
+    const rng = seededRandom(hashStr(loc.name + '_stats'));
+    const issuesReported = Math.floor(rng() * 150) + 20;
+    const resolvedIssues = Math.floor(rng() * (issuesReported * 0.95)) + 5;
+    
+    return {
+      ...loc,
+      issuesReported,
+      activeUsers: Math.floor(rng() * 600) + 100,
+      resolvedIssues,
+    };
+  });
 }
 
 // ── Seeded PRNG (deterministic per locality) ────────────────────────────
