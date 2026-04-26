@@ -134,11 +134,11 @@ export default function Statistics() {
       }
       setLoadingAll(false);
     });
-  }, [currentLoc]);
+  }, []);
 
   // Generate AI Forecast when live data changes
   useEffect(() => {
-    if (!liveAQI || !liveWeather || !currentLoc) return;
+    if (loadingAQI || loadingWeather || !liveAQI || !liveWeather || !currentLoc) return;
     
     const fetchForecast = async () => {
       setLoadingForecast(true);
@@ -185,7 +185,7 @@ Respond strictly in JSON format like: {"prediction": 120, "temp": 32, "humidity"
     // Minimal debounce for fast loading
     const timeoutId = setTimeout(fetchForecast, 50);
     return () => clearTimeout(timeoutId);
-  }, [liveAQI, liveWeather, currentLoc]);
+  }, [liveAQI, liveWeather, currentLoc, loadingAQI, loadingWeather]);
 
   // Derived state for charts
   const pollutantBreakdown = liveAQI ? [
