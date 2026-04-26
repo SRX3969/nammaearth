@@ -7,6 +7,7 @@ import {
   ChevronRight, Activity, Thermometer, Droplets, Volume2
 } from 'lucide-react';
 import { getLocationData } from '../data/locations';
+import { supabase } from '../lib/supabase';
 import './Home.css';
 
 function AnimatedCounter({ end, duration = 2000, suffix = '' }) {
@@ -102,19 +103,100 @@ const techStack = [
 
 export default function Home() {
   const [locationData, setLocationData] = useState([]);
-  const [currentAQI, setCurrentAQI] = useState(0);
+  const [currentAQI, setCurrentAQI] = useState(null);
+  const [liveWeather, setLiveWeather] = useState({ temp: 29, humidity: 62, wind: 8 });
+  const [statsLoaded, setStatsLoaded] = useState(false);
+  const [liveStats, setLiveStats] = useState({
+    issuesReported: 0,
+    activeCitizens: 0,
+    resolvedPercent: 0,
+  });
 
+  // Fetch real-time AQI from WAQI API
   useEffect(() => {
     const data = getLocationData();
     setLocationData(data);
-    const avgAQI = Math.round(data.reduce((sum, d) => sum + d.aqi, 0) / data.length);
-    setCurrentAQI(avgAQI);
+
+    // Fallback AQI from simulated data
+    const fallbackAQI = Math.round(data.reduce((sum, d) => sum + d.aqi, 0) / data.length);
+
+    const fetchLiveAQI = async () => {
+      try {
+        const res = await fetch('https://api.waqi.info/feed/bangalore/?token=demo');
+        const json = await res.json();
+        if (json.status === 'ok' && json.data?.aqi) {
+          setCurrentAQI(json.data.aqi);
+          // Extract weather if available
+          const iaqi = json.data.iaqi || {};
+          setLiveWeather({
+            temp: iaqi.t?.v ?? 29,
+            humidity: iaqi.h?.v ?? 62,
+            wind: iaqi.w?.v ?? 8,
+          });
+        } else {
+          setCurrentAQI(fallbackAQI);
+        }
+      } catch {
+        setCurrentAQI(fallbackAQI);
+      }
+    };
+
+    fetchLiveAQI();
+  }, []);
+
+  // Fetch live stats from Supabase
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        // Count total reports
+        const { count: totalReports } = await supabase
+          .from('reports')
+          .select('*', { count: 'exact', head: true });
+
+        // Count resolved reports
+        const { count: resolvedReports } = await supabase
+          .from('reports')
+          .select('*', { count: 'exact', head: true })
+          .eq('status', 'Resolved');
+
+        // Count unique users who reported
+        const { data: users } = await supabase
+          .from('reports')
+          .select('user_id');
+        const uniqueUsers = new Set(users?.map(u => u.user_id) || []).size;
+
+        // Count total profiles
+        const { count: totalProfiles } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true });
+
+        const resolvedPct = totalReports > 0
+          ? Math.round((resolvedReports / totalReports) * 100)
+          : 0;
+
+        setLiveStats({
+          issuesReported: totalReports || 0,
+          activeCitizens: Math.max(uniqueUsers, totalProfiles || 0),
+          resolvedPercent: resolvedPct,
+        });
+      } catch {
+        // Fallback if DB query fails
+        setLiveStats({ issuesReported: 0, activeCitizens: 0, resolvedPercent: 0 });
+      } finally {
+        setStatsLoaded(true);
+      }
+    };
+
+    fetchStats();
   }, []);
 
   const getAQIStatus = (aqi) => {
+    if (aqi == null) return { label: 'Loading...', cls: 'hero-aqi--good' };
+    if (aqi <= 50) return { label: 'Good', cls: 'hero-aqi--good' };
     if (aqi <= 100) return { label: 'Satisfactory', cls: 'hero-aqi--good' };
     if (aqi <= 200) return { label: 'Moderate', cls: 'hero-aqi--moderate' };
-    return { label: 'Poor', cls: 'hero-aqi--poor' };
+    if (aqi <= 300) return { label: 'Poor', cls: 'hero-aqi--poor' };
+    return { label: 'Very Poor', cls: 'hero-aqi--poor' };
   };
 
   const aqiStatus = getAQIStatus(currentAQI);
@@ -193,21 +275,21 @@ export default function Home() {
                 </span>
               </div>
               <div className={`hero-aqi-card__value ${aqiStatus.cls}`}>
-                {currentAQI}
+                {currentAQI ?? '—'}
               </div>
               <div className="hero-aqi-card__label">{aqiStatus.label}</div>
               <div className="hero-aqi-card__stats">
                 <div className="hero-aqi-card__stat">
                   <Thermometer size={14} />
-                  <span>29°C</span>
+                  <span>{Math.round(liveWeather.temp)}°C</span>
                 </div>
                 <div className="hero-aqi-card__stat">
                   <Droplets size={14} />
-                  <span>62%</span>
+                  <span>{Math.round(liveWeather.humidity)}%</span>
                 </div>
                 <div className="hero-aqi-card__stat">
                   <Wind size={14} />
-                  <span>8 km/h</span>
+                  <span>{Math.round(liveWeather.wind)} km/h</span>
                 </div>
               </div>
               <div className="hero-aqi-card__footer">
@@ -227,8 +309,11 @@ export default function Home() {
                 <Wind size={22} />
               </div>
               <div className="live-stats__info">
-                <div className="live-stats__value"><AnimatedCounter end={currentAQI} /></div>
+                <div className="live-stats__value">
+                  {currentAQI != null ? <AnimatedCounter end={currentAQI} /> : <span className="stats-loading">—</span>}
+                </div>
                 <div className="live-stats__label">Current AQI</div>
+                <div className="live-stats__source">WAQI Live</div>
               </div>
             </div>
             <div className="live-stats__card">
@@ -236,8 +321,11 @@ export default function Home() {
                 <AlertCircle size={22} />
               </div>
               <div className="live-stats__info">
-                <div className="live-stats__value"><AnimatedCounter end={2847} /></div>
+                <div className="live-stats__value">
+                  {statsLoaded ? <AnimatedCounter end={liveStats.issuesReported} /> : <span className="stats-loading">—</span>}
+                </div>
                 <div className="live-stats__label">Issues Reported</div>
+                <div className="live-stats__source">Database</div>
               </div>
             </div>
             <div className="live-stats__card">
@@ -245,8 +333,11 @@ export default function Home() {
                 <Users size={22} />
               </div>
               <div className="live-stats__info">
-                <div className="live-stats__value"><AnimatedCounter end={12450} /></div>
+                <div className="live-stats__value">
+                  {statsLoaded ? <AnimatedCounter end={liveStats.activeCitizens} /> : <span className="stats-loading">—</span>}
+                </div>
                 <div className="live-stats__label">Active Citizens</div>
+                <div className="live-stats__source">Database</div>
               </div>
             </div>
             <div className="live-stats__card">
@@ -254,8 +345,11 @@ export default function Home() {
                 <TrendingDown size={22} />
               </div>
               <div className="live-stats__info">
-                <div className="live-stats__value"><AnimatedCounter end={18} suffix="%" /></div>
-                <div className="live-stats__label">Pollution Reduced</div>
+                <div className="live-stats__value">
+                  {statsLoaded ? <AnimatedCounter end={liveStats.resolvedPercent} suffix="%" /> : <span className="stats-loading">—</span>}
+                </div>
+                <div className="live-stats__label">Issues Resolved</div>
+                <div className="live-stats__source">Database</div>
               </div>
             </div>
           </div>
