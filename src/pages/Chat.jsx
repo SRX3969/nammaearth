@@ -7,12 +7,9 @@ import { locations } from '../data/locations';
 import './Chat.css';
 
 const SUGGESTED_QUESTIONS = [
-  'What is the current AQI in Bengaluru?',
-  'How can I reduce my carbon footprint?',
-  'Best route to avoid pollution in Whitefield?',
-  'How to properly dispose of e-waste?',
-  'What are the effects of PM2.5 on health?',
-  'Tips for improving indoor air quality',
+  'Which area in Bengaluru has the worst AQI right now?',
+  'Give me a recipe for a vegan burger',
+  'Suggest a low-pollution route from Indiranagar to Whitefield',
 ];
 
 // Smart environmental AI response using Gemini API
