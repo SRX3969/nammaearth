@@ -119,24 +119,32 @@ export default function Admin() {
   };
 
   const sendEmailNotification = async (report, newStatus, message) => {
-    // Note: In a real production environment, this triggers EmailJS or a Supabase Edge Function
-    // For this demonstration, we simulate the email sending network request and log the exact template
-    console.log("=========================================");
-    console.log(`✉️ EMAIL SENT TO: ${report.user_name} (${report.user_email})`);
-    console.log(`SUBJECT: Update regarding your NammaEarth Report (ID: #${report.id.substring(0,8)})`);
-    console.log(`\nDear ${report.user_name},`);
-    console.log(`\nThank you so much for taking the time to keep Bengaluru clean and safe. We truly appreciate your active participation in the NammaEarth community.`);
-    console.log(`\nWe are writing to inform you that the status of your report regarding [${report.type}] at [${report.location}] has been updated to: **${newStatus}**.`);
-    if (message) {
-      console.log(`\nMessage from the Authorities:`);
-      console.log(`"${message}"`);
-    }
-    console.log(`\nThank you once again for your dedication to our city.`);
-    console.log(`\nWarm Regards,\nThe NammaEarth Admin Team`);
-    console.log("=========================================");
+    // Generate the personalized email content
+    const subject = encodeURIComponent(`Update regarding your NammaEarth Report (ID: #${report.id.substring(0,8)})`);
     
-    // Simulate network delay for sending email
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    let body = `Dear ${report.user_name},\n\n`;
+    body += `Thank you so much for taking the time to keep Bengaluru clean and safe. We truly appreciate your active participation in the NammaEarth community.\n\n`;
+    body += `We are writing to inform you that the status of your report regarding [${report.type}] at [${report.location}] has been updated to: ${newStatus.toUpperCase()}.\n\n`;
+    
+    if (message) {
+      body += `Message from the Authorities:\n"${message}"\n\n`;
+    }
+    
+    body += `Thank you once again for your dedication to our city.\n\n`;
+    body += `Warm Regards,\nThe NammaEarth Admin Team`;
+
+    const encodedBody = encodeURIComponent(body);
+    
+    // Trigger the native email client directed explicitly to the user's email ID
+    const targetEmail = report.user_email && report.user_email !== 'Citizen Email Not Available' ? report.user_email : '';
+    if (targetEmail) {
+      window.location.href = `mailto:${targetEmail}?subject=${subject}&body=${encodedBody}`;
+    } else {
+      console.warn("Could not open mail client: User email not available in profile.");
+    }
+    
+    // Slight delay to allow the mail client to launch before updating UI
+    await new Promise(resolve => setTimeout(resolve, 800));
   };
 
   const confirmUpdateStatus = async () => {
@@ -166,7 +174,9 @@ export default function Admin() {
         });
         return updated;
       });
-      alert(`✅ Email notification sent to the citizen!\n\nStatus successfully updated to ${status}.`);
+      
+      const targetEmail = report.user_email !== 'Citizen Email Not Available' ? report.user_email : 'the citizen';
+      alert(`✅ Status successfully updated to ${status}.\n\nAn email is being prepared to be sent securely to: ${targetEmail}`);
     } else {
       alert("Error updating status in database.");
     }
