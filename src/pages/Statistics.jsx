@@ -97,7 +97,7 @@ export default function Statistics() {
       } else {
         setLiveWeather({
           temperature: 28, humidity: 60, windSpeed: 8,
-          daily: getWeeklyAQI(),
+          daily: getWeeklyAQI(currentLoc.name),
         });
       }
       setLoadingWeather(false);
@@ -109,7 +109,7 @@ export default function Statistics() {
       if (data) {
         setHourlyAQI(data);
       } else {
-        setHourlyAQI(get24HourAQI());
+        setHourlyAQI(get24HourAQI(currentLoc.name));
       }
       setLoadingHourly(false);
     });

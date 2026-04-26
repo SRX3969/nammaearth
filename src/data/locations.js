@@ -133,47 +133,99 @@ export function getLeaderboardData() {
   }));
 }
 
-// Historical AQI data for charts
+// ── Seeded PRNG (deterministic per locality) ────────────────────────────
+function hashStr(str) {
+  let hash = 5381;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) + hash) + str.charCodeAt(i);
+    hash = hash & hash; // Convert to 32-bit int
+  }
+  return Math.abs(hash);
+}
+
+function seededRandom(seed) {
+  let s = seed;
+  return () => {
+    s = (s * 1664525 + 1013904223) & 0x7fffffff;
+    return s / 0x7fffffff;
+  };
+}
+
+// Base AQI range by locality type
+const TYPE_AQI_BASE = {
+  'industrial': { base: 160, range: 100 },
+  'tech-hub': { base: 100, range: 80 },
+  'traffic': { base: 130, range: 90 },
+  'residential': { base: 70, range: 60 },
+  'commercial': { base: 95, range: 70 },
+};
+
+// Seasonal modifiers (Jan=winter smog high, Jul=monsoon low)
+const SEASONAL = [20, 15, 5, -5, -15, -25, -30, -20, -10, 0, 15, 25];
+
+// Historical AQI data for charts — seeded per locality
 export function getHistoricalAQI(locationName) {
+  const loc = locations.find(l => l.name === locationName);
+  const type = loc?.type || 'residential';
+  const { base, range } = TYPE_AQI_BASE[type] || TYPE_AQI_BASE['residential'];
+  const rng = seededRandom(hashStr(locationName || 'default'));
   const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  return months.map(month => ({
-    month,
-    aqi: Math.floor(60 + Math.random() * 200),
-    pm25: Math.floor(20 + Math.random() * 150),
-    pm10: Math.floor(40 + Math.random() * 200),
-    no2: Math.floor(10 + Math.random() * 80),
-  }));
+
+  return months.map((month, i) => {
+    const seasonal = SEASONAL[i];
+    const aqi = Math.max(25, Math.round(base + seasonal + (rng() * range - range / 2)));
+    const factor = aqi / 150;
+    return {
+      month,
+      aqi,
+      pm25: Math.max(5, Math.round(10 + factor * 100 + rng() * 20)),
+      pm10: Math.max(10, Math.round(20 + factor * 140 + rng() * 30)),
+      no2: Math.max(3, Math.round(8 + factor * 50 + rng() * 15)),
+    };
+  });
 }
 
-export function getWeeklyAQI() {
+// Weekly data — seeded per locality
+export function getWeeklyAQI(locationName) {
+  const loc = locations.find(l => l.name === locationName);
+  const type = loc?.type || 'residential';
+  const { base } = TYPE_AQI_BASE[type] || TYPE_AQI_BASE['residential'];
+  const rng = seededRandom(hashStr((locationName || 'default') + '_weekly'));
   const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-  return days.map(day => ({
-    day,
-    aqi: Math.floor(60 + Math.random() * 180),
-    temperature: Math.round(24 + Math.random() * 10),
-    humidity: Math.round(40 + Math.random() * 40),
-  }));
+
+  // Weekend AQI is typically lower (less traffic/industry)
+  return days.map((day, i) => {
+    const weekendDip = (i >= 5) ? -15 : 0;
+    return {
+      day,
+      aqi: Math.max(30, Math.round(base + weekendDip + (rng() * 60 - 30))),
+      temperature: Math.round(24 + rng() * 10),
+      humidity: Math.round(40 + rng() * 40),
+    };
+  });
 }
 
-// 24-hour historical AQI data (hourly)
-export function get24HourAQI() {
+// 24-hour historical AQI data (hourly) — seeded per locality
+export function get24HourAQI(locationName) {
+  const loc = locations.find(l => l.name === locationName);
+  const type = loc?.type || 'residential';
+  const { base } = TYPE_AQI_BASE[type] || TYPE_AQI_BASE['residential'];
+  const rng = seededRandom(hashStr((locationName || 'default') + '_24h'));
   const now = new Date();
   const data = [];
-  const baseAQI = 95 + Math.floor(Math.random() * 20);
 
   for (let i = 24; i >= 0; i--) {
     const time = new Date(now.getTime() - i * 60 * 60 * 1000);
     const hour = time.getHours();
 
-    // Simulate diurnal pattern: higher AQI during morning (8-10) and evening (17-20) rush
+    // Diurnal pattern: rush hours higher, night lower
     let modifier = 0;
-    if (hour >= 8 && hour <= 10) modifier = 15 + Math.random() * 10;
-    else if (hour >= 17 && hour <= 20) modifier = 20 + Math.random() * 15;
-    else if (hour >= 0 && hour <= 5) modifier = -10 - Math.random() * 10;
-    else modifier = Math.random() * 10 - 5;
+    if (hour >= 8 && hour <= 10) modifier = 20 + rng() * 15;
+    else if (hour >= 17 && hour <= 20) modifier = 25 + rng() * 20;
+    else if (hour >= 0 && hour <= 5) modifier = -15 - rng() * 15;
+    else modifier = rng() * 15 - 7;
 
-    const aqi = Math.max(30, Math.round(baseAQI + modifier + (Math.random() * 12 - 6)));
-
+    const aqi = Math.max(15, Math.round(base + modifier + (rng() * 10 - 5)));
     const label = time.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
     data.push({
       time: label,
@@ -192,6 +244,7 @@ export function get24HourAQI() {
     hourly: data,
     min: { value: minAQI, time: data[minIdx]?.time || '' },
     max: { value: maxAQI, time: data[maxIdx]?.time || '' },
-    current: data[data.length - 1]?.aqi || baseAQI,
+    current: data[data.length - 1]?.aqi || base,
   };
 }
+
