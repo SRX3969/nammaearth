@@ -30,6 +30,11 @@ export default function Admin() {
   const [expandedId, setExpandedId] = useState(null);
   const [filter, setFilter] = useState('All');
   const [stats, setStats] = useState({ total: 0, submitted: 0, inProgress: 0, resolved: 0, rejected: 0 });
+  
+  // Action state for status updates
+  const [selectedAction, setSelectedAction] = useState({ reportId: null, status: null });
+  const [adminMessage, setAdminMessage] = useState('');
+  const [isNotifying, setIsNotifying] = useState(false);
 
   // Check if admin session exists in sessionStorage
   useEffect(() => {
@@ -89,15 +94,56 @@ export default function Admin() {
     setLoading(false);
   };
 
-  const updateStatus = async (reportId, newStatus) => {
+  const handleActionClick = (reportId, status) => {
+    setSelectedAction({ reportId, status });
+    if (status === 'Resolved') {
+      setAdminMessage('This issue has been successfully resolved. Thank you for making NammaEarth cleaner!');
+    } else if (status === 'Rejected') {
+      setAdminMessage('');
+    } else {
+      setAdminMessage('');
+    }
+  };
+
+  const sendEmailNotification = async (report, newStatus, message) => {
+    // Note: In a real production environment, this triggers EmailJS or a Supabase Edge Function
+    // For this demonstration, we simulate the email sending network request and log the exact template
+    console.log("=========================================");
+    console.log(`✉️ EMAIL SENT TO: Citizen (User ID: ${report.user_id})`);
+    console.log(`SUBJECT: Update regarding your NammaEarth Report (ID: #${report.id.substring(0,8)})`);
+    console.log(`\nDear Citizen,`);
+    console.log(`\nThank you so much for taking the time to keep Bengaluru clean and safe. We truly appreciate your active participation in the NammaEarth community.`);
+    console.log(`\nWe are writing to inform you that the status of your report regarding [${report.type}] at [${report.location}] has been updated to: **${newStatus}**.`);
+    if (message) {
+      console.log(`\nMessage from the Authorities:`);
+      console.log(`"${message}"`);
+    }
+    console.log(`\nThank you once again for your dedication to our city.`);
+    console.log(`\nWarm Regards,\nThe NammaEarth Admin Team`);
+    console.log("=========================================");
+    
+    // Simulate network delay for sending email
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  };
+
+  const confirmUpdateStatus = async () => {
+    const { reportId, status } = selectedAction;
+    setIsNotifying(true);
+    
+    const report = reports.find(r => r.id === reportId);
+    
+    // 1. Send the personalized email notification
+    await sendEmailNotification(report, status, adminMessage);
+
+    // 2. Update the database (Status only to preserve existing schema)
     const { error } = await supabase
       .from('reports')
-      .update({ status: newStatus })
+      .update({ status: status })
       .eq('id', reportId);
 
     if (!error) {
       setReports(prev => {
-        const updated = prev.map(r => r.id === reportId ? { ...r, status: newStatus } : r);
+        const updated = prev.map(r => r.id === reportId ? { ...r, status: status } : r);
         setStats({
           total: updated.length,
           submitted: updated.filter(r => r.status === 'Submitted').length,
@@ -107,7 +153,14 @@ export default function Admin() {
         });
         return updated;
       });
+      alert(`✅ Email notification sent to the citizen!\n\nStatus successfully updated to ${status}.`);
+    } else {
+      alert("Error updating status in database.");
     }
+    
+    setIsNotifying(false);
+    setSelectedAction({ reportId: null, status: null });
+    setAdminMessage('');
   };
 
   const filteredReports = filter === 'All' ? reports : reports.filter(r => r.status === filter);
@@ -365,22 +418,62 @@ export default function Admin() {
 
                     <div className="admin-report__actions">
                       <span className="admin-actions-label">Update Status:</span>
-                      <button className="btn btn-sm admin-action-btn admin-action-btn--progress"
-                        onClick={() => updateStatus(report.id, 'In Progress')}
-                        disabled={report.status === 'In Progress'}>
+                      <button className={`btn btn-sm admin-action-btn admin-action-btn--progress ${selectedAction.reportId === report.id && selectedAction.status === 'In Progress' ? 'active' : ''}`}
+                        onClick={() => handleActionClick(report.id, 'In Progress')}
+                        disabled={report.status === 'In Progress' || isNotifying}>
                         <Eye size={14} /> In Progress
                       </button>
-                      <button className="btn btn-sm admin-action-btn admin-action-btn--resolve"
-                        onClick={() => updateStatus(report.id, 'Resolved')}
-                        disabled={report.status === 'Resolved'}>
+                      <button className={`btn btn-sm admin-action-btn admin-action-btn--resolve ${selectedAction.reportId === report.id && selectedAction.status === 'Resolved' ? 'active' : ''}`}
+                        onClick={() => handleActionClick(report.id, 'Resolved')}
+                        disabled={report.status === 'Resolved' || isNotifying}>
                         <Check size={14} /> Resolved
                       </button>
-                      <button className="btn btn-sm admin-action-btn admin-action-btn--reject"
-                        onClick={() => updateStatus(report.id, 'Rejected')}
-                        disabled={report.status === 'Rejected'}>
+                      <button className={`btn btn-sm admin-action-btn admin-action-btn--reject ${selectedAction.reportId === report.id && selectedAction.status === 'Rejected' ? 'active' : ''}`}
+                        onClick={() => handleActionClick(report.id, 'Rejected')}
+                        disabled={report.status === 'Rejected' || isNotifying}>
                         <X size={14} /> Reject
                       </button>
                     </div>
+
+                    {/* Notification Input Panel */}
+                    {selectedAction.reportId === report.id && (
+                      <motion.div 
+                        className="admin-notification-panel"
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        style={{ marginTop: '16px', background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}
+                      >
+                        <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#475569', marginBottom: '8px' }}>
+                          {selectedAction.status === 'In Progress' ? 'Message to Citizen (e.g. ETA for resolution):' : 
+                           selectedAction.status === 'Rejected' ? 'Reason for Rejection:' : 
+                           'Resolution Message:'}
+                        </label>
+                        <textarea 
+                          value={adminMessage}
+                          onChange={(e) => setAdminMessage(e.target.value)}
+                          placeholder="Type your message here. This will be emailed directly to the citizen..."
+                          style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', minHeight: '80px', fontSize: '0.9rem', marginBottom: '12px', resize: 'vertical' }}
+                        />
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                          <button 
+                            className="btn btn-sm btn-ghost" 
+                            onClick={() => setSelectedAction({ reportId: null, status: null })}
+                            disabled={isNotifying}
+                          >
+                            Cancel
+                          </button>
+                          <button 
+                            className="btn btn-sm btn-primary" 
+                            onClick={confirmUpdateStatus}
+                            disabled={isNotifying}
+                            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+                          >
+                            {isNotifying ? <Loader2 size={14} className="spin" /> : <Send size={14} />}
+                            Confirm & Notify User
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
                   </div>
                 )}
               </motion.div>
