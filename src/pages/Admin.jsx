@@ -6,6 +6,7 @@ import {
   ShieldCheck, ShieldAlert, ShieldX, Fingerprint, Lock, LogIn, Send
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import emailjs from '@emailjs/browser';
 import './Admin.css';
 
 // Admin credentials — change these for production
@@ -119,32 +120,39 @@ export default function Admin() {
   };
 
   const sendEmailNotification = async (report, newStatus, message) => {
-    // Generate the personalized email content
-    const subject = encodeURIComponent(`Update regarding your NammaEarth Report (ID: #${report.id.substring(0,8)})`);
-    
-    let body = `Dear ${report.user_name},\n\n`;
-    body += `Thank you so much for taking the time to keep Bengaluru clean and safe. We truly appreciate your active participation in the NammaEarth community.\n\n`;
-    body += `We are writing to inform you that the status of your report regarding [${report.type}] at [${report.location}] has been updated to: ${newStatus.toUpperCase()}.\n\n`;
-    
-    if (message) {
-      body += `Message from the Authorities:\n"${message}"\n\n`;
-    }
-    
-    body += `Thank you once again for your dedication to our city.\n\n`;
-    body += `Warm Regards,\nThe NammaEarth Admin Team`;
-
-    const encodedBody = encodeURIComponent(body);
-    
-    // Trigger the native email client directed explicitly to the user's email ID
     const targetEmail = report.user_email && report.user_email !== 'Citizen Email Not Available' ? report.user_email : '';
-    if (targetEmail) {
-      window.location.href = `mailto:${targetEmail}?subject=${subject}&body=${encodedBody}`;
-    } else {
-      console.warn("Could not open mail client: User email not available in profile.");
+    if (!targetEmail) {
+      console.warn("Could not send email: User email not available.");
+      return true; // Return true to continue DB update even if email is missing
     }
-    
-    // Slight delay to allow the mail client to launch before updating UI
-    await new Promise(resolve => setTimeout(resolve, 800));
+
+    const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+    const templateId = import.meta.env.VITE_EMAILJS_TEMPLATE_ID;
+    const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+    if (!serviceId || !templateId || !publicKey) {
+      alert("⚠️ EmailJS is not configured yet! Please add the EmailJS keys to your .env file to enable automatic background emails.");
+      return false; 
+    }
+
+    try {
+      const templateParams = {
+        to_email: targetEmail,
+        to_name: report.user_name,
+        report_id: `#${report.id.substring(0,8)}`,
+        report_type: report.type,
+        report_location: report.location,
+        new_status: newStatus.toUpperCase(),
+        admin_message: message || "No additional message from authorities.",
+      };
+
+      await emailjs.send(serviceId, templateId, templateParams, publicKey);
+      return true;
+    } catch (error) {
+      console.error("Failed to send email via EmailJS:", error);
+      alert("Error sending email automatically. Please check your EmailJS configuration.");
+      return false;
+    }
   };
 
   const confirmUpdateStatus = async () => {
@@ -153,8 +161,13 @@ export default function Admin() {
     
     const report = reports.find(r => r.id === reportId);
     
-    // 1. Send the personalized email notification
-    await sendEmailNotification(report, status, adminMessage);
+    // 1. Send the personalized email notification automatically
+    const emailSent = await sendEmailNotification(report, status, adminMessage);
+    
+    if (!emailSent) {
+      setIsNotifying(false);
+      return; // Stop the process if email configuration failed
+    }
 
     // 2. Update the database (Status only to preserve existing schema)
     const { error } = await supabase
@@ -176,7 +189,7 @@ export default function Admin() {
       });
       
       const targetEmail = report.user_email !== 'Citizen Email Not Available' ? report.user_email : 'the citizen';
-      alert(`✅ Status successfully updated to ${status}.\n\nAn email is being prepared to be sent securely to: ${targetEmail}`);
+      alert(`✅ Status successfully updated to ${status}.\n\nAn email was automatically sent in the background to: ${targetEmail}`);
     } else {
       alert("Error updating status in database.");
     }
