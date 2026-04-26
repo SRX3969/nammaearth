@@ -154,3 +154,44 @@ export function getWeeklyAQI() {
     humidity: Math.round(40 + Math.random() * 40),
   }));
 }
+
+// 24-hour historical AQI data (hourly)
+export function get24HourAQI() {
+  const now = new Date();
+  const data = [];
+  const baseAQI = 95 + Math.floor(Math.random() * 20);
+
+  for (let i = 24; i >= 0; i--) {
+    const time = new Date(now.getTime() - i * 60 * 60 * 1000);
+    const hour = time.getHours();
+
+    // Simulate diurnal pattern: higher AQI during morning (8-10) and evening (17-20) rush
+    let modifier = 0;
+    if (hour >= 8 && hour <= 10) modifier = 15 + Math.random() * 10;
+    else if (hour >= 17 && hour <= 20) modifier = 20 + Math.random() * 15;
+    else if (hour >= 0 && hour <= 5) modifier = -10 - Math.random() * 10;
+    else modifier = Math.random() * 10 - 5;
+
+    const aqi = Math.max(30, Math.round(baseAQI + modifier + (Math.random() * 12 - 6)));
+
+    const label = time.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
+    data.push({
+      time: label,
+      aqi,
+      date: time.toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }),
+    });
+  }
+
+  const aqiValues = data.map(d => d.aqi);
+  const minAQI = Math.min(...aqiValues);
+  const maxAQI = Math.max(...aqiValues);
+  const minIdx = aqiValues.indexOf(minAQI);
+  const maxIdx = aqiValues.indexOf(maxAQI);
+
+  return {
+    hourly: data,
+    min: { value: minAQI, time: data[minIdx]?.time || '' },
+    max: { value: maxAQI, time: data[maxIdx]?.time || '' },
+    current: data[data.length - 1]?.aqi || baseAQI,
+  };
+}

@@ -6,9 +6,9 @@ import {
 } from 'recharts';
 import {
   Search, Wind, Thermometer, Droplets, Volume2, TrendingUp,
-  Calendar, MapPin, Activity, Filter
+  Calendar, MapPin, Activity, Filter, Clock, ArrowDown, ArrowUp
 } from 'lucide-react';
-import { getLocationData, getHistoricalAQI, getWeeklyAQI, locations } from '../data/locations';
+import { getLocationData, getHistoricalAQI, getWeeklyAQI, get24HourAQI, locations } from '../data/locations';
 import './Statistics.css';
 
 const fadeUp = {
@@ -24,6 +24,7 @@ export default function Statistics() {
   const [historicalData, setHistoricalData] = useState([]);
   const [weeklyData, setWeeklyData] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [hourlyAQI, setHourlyAQI] = useState(null);
 
   useEffect(() => {
     const data = getLocationData();
@@ -31,6 +32,7 @@ export default function Statistics() {
     setSelectedLocation(data[0]?.name || '');
     setHistoricalData(getHistoricalAQI());
     setWeeklyData(getWeeklyAQI());
+    setHourlyAQI(get24HourAQI());
   }, []);
 
   const currentLoc = locationData.find(l => l.name === selectedLocation) || locationData[0];
@@ -230,6 +232,78 @@ export default function Statistics() {
               </LineChart>
             </ResponsiveContainer>
           </motion.div>
+
+          {/* 24-Hour Historical AQI */}
+          {hourlyAQI && (
+            <motion.div className="stats-chart card" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
+              <div className="stats-chart__header">
+                <h3><Clock size={16} /> Historical Air Quality (24h)</h3>
+                <span className="badge badge-info"><Calendar size={12} /> Bangalore</span>
+              </div>
+
+              {/* Min / Max badges */}
+              <div className="aqi24-summary">
+                <div className="aqi24-badge aqi24-badge--current">
+                  <span className="aqi24-badge__value">{hourlyAQI.current}</span>
+                  <span className="aqi24-badge__label">Current AQI</span>
+                </div>
+                <div className="aqi24-badge aqi24-badge--min">
+                  <ArrowDown size={13} />
+                  <span className="aqi24-badge__value">{hourlyAQI.min.value}</span>
+                  <span className="aqi24-badge__label">Min · {hourlyAQI.min.time}</span>
+                </div>
+                <div className="aqi24-badge aqi24-badge--max">
+                  <ArrowUp size={13} />
+                  <span className="aqi24-badge__value">{hourlyAQI.max.value}</span>
+                  <span className="aqi24-badge__label">Max · {hourlyAQI.max.time}</span>
+                </div>
+              </div>
+
+              <ResponsiveContainer width="100%" height={260}>
+                <BarChart data={hourlyAQI.hourly} margin={{ top: 5, right: 5, bottom: 5, left: -10 }}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
+                  <XAxis
+                    dataKey="time"
+                    tick={{ fontSize: 10 }}
+                    stroke="#9ca3af"
+                    interval={2}
+                    angle={-35}
+                    textAnchor="end"
+                    height={50}
+                  />
+                  <YAxis tick={{ fontSize: 11 }} stroke="#9ca3af" />
+                  <Tooltip
+                    contentStyle={{
+                      background: '#1e293b',
+                      border: '1px solid #334155',
+                      borderRadius: '8px',
+                      fontSize: '13px',
+                      color: '#f1f5f9',
+                    }}
+                    labelStyle={{ color: '#94a3b8', fontWeight: 600, marginBottom: 4 }}
+                    formatter={(value) => [`AQI: ${value}`, '']}
+                    labelFormatter={(label, payload) => {
+                      const item = payload?.[0]?.payload;
+                      return item ? `${label} — ${item.date}` : label;
+                    }}
+                  />
+                  <Bar dataKey="aqi" radius={[2, 2, 0, 0]} barSize={12}>
+                    {hourlyAQI.hourly.map((entry, i) => (
+                      <Cell
+                        key={i}
+                        fill={
+                          entry.aqi <= 50 ? '#4caf50' :
+                          entry.aqi <= 100 ? '#f59e0b' :
+                          entry.aqi <= 200 ? '#f97316' :
+                          '#ef4444'
+                        }
+                      />
+                    ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </motion.div>
+          )}
 
           {/* AQI Comparison */}
           <motion.div className="stats-chart stats-chart--wide card" initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp}>
