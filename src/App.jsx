@@ -10,6 +10,7 @@ import ReportIssue from './pages/ReportIssue';
 import Chat from './pages/Chat';
 import Login from './pages/Login';
 import Admin from './pages/Admin';
+import NGOs from './pages/NGOs';
 import './App.css';
 
 // Pages where footer should be hidden (full-height layouts)
@@ -46,6 +47,7 @@ function App() {
             <Route path="/chat" element={<Chat />} />
             <Route path="/login" element={<Login />} />
             <Route path="/admin" element={<Admin />} />
+            <Route path="/ngos" element={<NGOs />} />
           </Routes>
         </motion.main>
       </AnimatePresence>

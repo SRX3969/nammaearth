@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Leaf, MapPin, BarChart3, Trophy, AlertCircle, MessageSquare, User, Sun, Moon } from 'lucide-react';
+import { Menu, X, Leaf, MapPin, BarChart3, Trophy, AlertCircle, MessageSquare, User, Sun, Moon, Building2 } from 'lucide-react';
 import LeafLogo from './LeafLogo';
 import './Navbar.css';
 
@@ -11,6 +11,7 @@ const navLinks = [
   { path: '/leaderboard', label: 'Leaderboard', icon: Trophy },
   { path: '/report', label: 'Report Issue', icon: AlertCircle },
   { path: '/chat', label: 'Chat', icon: MessageSquare },
+  { path: '/ngos', label: 'NGO Network', icon: Building2 },
 ];
 
 export default function Navbar() {
