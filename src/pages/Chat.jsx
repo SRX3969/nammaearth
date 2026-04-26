@@ -2,6 +2,8 @@ import { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Send, Bot, User, Loader2, Trash2, HelpCircle } from 'lucide-react';
 import LeafLogo from '../components/LeafLogo';
+import { fetchAllLocalitiesAQI } from '../lib/liveDataService';
+import { locations } from '../data/locations';
 import './Chat.css';
 
 const SUGGESTED_QUESTIONS = [
@@ -14,7 +16,7 @@ const SUGGESTED_QUESTIONS = [
 ];
 
 // Smart environmental AI response using Gemini API
-async function generateResponse(question) {
+async function generateResponse(question, contextData) {
   const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
   if (!apiKey) {
     return "⚠️ **API Key Missing:** Please add your `VITE_GEMINI_API_KEY` to the `.env` file and restart the server to enable the AI assistant.";
@@ -25,7 +27,10 @@ STRICT RULES:
 1. ONLY answer questions related to the environment, air quality, waste management, traffic pollution, green infrastructure, sustainability, and NammaEarth platform features.
 2. If the user asks an off-topic question (e.g., programming, cooking, general knowledge, movies), politely decline and remind them that you are strictly an environmental assistant for Bengaluru.
 3. Keep answers concise, factual, and actionable.
-4. Format responses using markdown with bullet points and bold text for readability.`;
+4. Format responses using markdown with bullet points and bold text for readability.
+
+CURRENT LIVE DATA CONTEXT (Use this to answer questions about current AQI):
+${contextData}`;
 
   try {
     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
@@ -57,7 +62,26 @@ export default function Chat() {
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [liveContext, setLiveContext] = useState('');
   const chatEndRef = useRef(null);
+
+  // Fetch live AQI data to provide to the AI as context
+  useEffect(() => {
+    const fetchContext = async () => {
+      try {
+        const liveData = await fetchAllLocalitiesAQI(locations.slice(0, 10)); // Get top 10 locations to save token space
+        if (liveData && liveData.length > 0) {
+          const contextString = liveData.map(loc => 
+            `- ${loc.name}: AQI ${loc.aqi || 'Unknown'}`
+          ).join('\n');
+          setLiveContext(contextString);
+        }
+      } catch (e) {
+        console.error('Failed to fetch live context for AI', e);
+      }
+    };
+    fetchContext();
+  }, []);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -77,7 +101,7 @@ export default function Chat() {
     setInput('');
     setIsTyping(true);
 
-    const response = await generateResponse(text);
+    const response = await generateResponse(text, liveContext);
     const assistantMsg = {
       id: Date.now() + 1,
       role: 'assistant',
