@@ -6,7 +6,47 @@
 
 /* Header */
 .stats-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
   margin-bottom: 32px;
+}
+
+.stats-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border-radius: var(--radius-full);
+  font-size: 0.75rem;
+  font-weight: 600;
+  background: var(--gray-100);
+  color: var(--gray-500);
+  border: 1px solid var(--gray-200);
+  white-space: nowrap;
+}
+
+.stats-live-badge--live {
+  background: #f0fdf4;
+  color: #16a34a;
+  border-color: #bbf7d0;
+}
+
+[data-theme="dark"] .stats-live-badge--live {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.2);
+}
+
+/* Chart Loader */
+.chart-loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 280px;
+  color: var(--gray-400);
+  font-size: 0.875rem;
+  font-weight: 500;
 }
 
 .stats-header__title {
