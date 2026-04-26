@@ -156,7 +156,10 @@ Respond strictly in JSON format like: {"prediction": 120, "temp": 32, "humidity"
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.3 }
+            generationConfig: { 
+              temperature: 0.3,
+              responseMimeType: "application/json" 
+            }
           })
         });
         const data = await response.json();
@@ -164,9 +167,19 @@ Respond strictly in JSON format like: {"prediction": 120, "temp": 32, "humidity"
         if (text) {
           const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
           setAiForecast(JSON.parse(cleanedText));
+        } else {
+          throw new Error("No text returned");
         }
       } catch (e) {
         console.error('Forecast failed', e);
+        // Fallback so it's never blank
+        setAiForecast({
+          prediction: Math.min(500, liveAQI.aqi + 15),
+          temp: liveWeather.temperature,
+          humidity: liveWeather.humidity,
+          risk: liveAQI.aqi > 150 ? "High" : "Moderate",
+          explanation: "Forecast unavailable. Expected to remain similar to current conditions."
+        });
       } finally {
         setLoadingForecast(false);
       }
