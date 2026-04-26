@@ -76,7 +76,7 @@ export default function Statistics() {
 
     // Fetch AQI + Pollutants
     setLoadingAQI(true);
-    fetchLiveAQI(currentLoc.lat, currentLoc.lng).then(data => {
+    fetchLiveAQI(currentLoc.lat, currentLoc.lng, currentLoc.type, currentLoc.name).then(data => {
       if (data) {
         setLiveAQI(data);
         setIsLive(true);
@@ -91,7 +91,7 @@ export default function Statistics() {
 
     // Fetch Weather
     setLoadingWeather(true);
-    fetchLiveWeather(currentLoc.lat, currentLoc.lng).then(data => {
+    fetchLiveWeather(currentLoc.lat, currentLoc.lng, currentLoc.name).then(data => {
       if (data) {
         setLiveWeather(data);
       } else {
@@ -105,7 +105,7 @@ export default function Statistics() {
 
     // Fetch 24h Hourly AQI
     setLoadingHourly(true);
-    fetchHourlyAQI(currentLoc.lat, currentLoc.lng).then(data => {
+    fetchHourlyAQI(currentLoc.lat, currentLoc.lng, currentLoc.type, currentLoc.name).then(data => {
       if (data) {
         setHourlyAQI(data);
       } else {
