@@ -57,6 +57,10 @@ export default function Statistics() {
   const [allAQI, setAllAQI] = useState(null);
   const [historicalData, setHistoricalData] = useState([]);
 
+  // AI Forecast state
+  const [aiForecast, setAiForecast] = useState(null);
+  const [loadingForecast, setLoadingForecast] = useState(false);
+
   // Loading states
   const [loadingAQI, setLoadingAQI] = useState(true);
   const [loadingWeather, setLoadingWeather] = useState(true);
@@ -130,9 +134,50 @@ export default function Statistics() {
       }
       setLoadingAll(false);
     });
-  }, []);
+  }, [currentLoc]);
 
-  // Derived data
+  // Generate AI Forecast when live data changes
+  useEffect(() => {
+    if (!liveAQI || !liveWeather || !currentLoc) return;
+    
+    const fetchForecast = async () => {
+      setLoadingForecast(true);
+      try {
+        const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+        if (!apiKey) return;
+        const prompt = `Based on the following current environmental data for ${currentLoc.name} in Bengaluru, predict the AQI for tomorrow and give a short 1-sentence explanation.
+Current AQI: ${liveAQI.aqi}
+Current Temp: ${liveWeather.temperature}°C
+Current Humidity: ${liveWeather.humidity}%
+Respond strictly in JSON format like: {"prediction": 120, "explanation": "AQI will likely rise due to falling humidity holding PM2.5 closer to the ground."}`;
+        
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ text: prompt }] }],
+            generationConfig: { temperature: 0.3 }
+          })
+        });
+        const data = await response.json();
+        const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text) {
+          const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+          setAiForecast(JSON.parse(cleanedText));
+        }
+      } catch (e) {
+        console.error('Forecast failed', e);
+      } finally {
+        setLoadingForecast(false);
+      }
+    };
+    
+    // Slight debounce to ensure data is settled
+    const timeoutId = setTimeout(fetchForecast, 1000);
+    return () => clearTimeout(timeoutId);
+  }, [liveAQI, liveWeather, currentLoc]);
+
+  // Derived state for charts
   const pollutantBreakdown = liveAQI ? [
     { name: 'PM2.5', value: liveAQI.pollutants.pm25 },
     { name: 'PM10', value: liveAQI.pollutants.pm10 },
@@ -241,6 +286,28 @@ export default function Statistics() {
               </motion.div>
             );
           })}
+        </motion.div>
+
+        {/* AI Forecast Widget */}
+        <motion.div className="stats-ai-forecast card" initial="hidden" animate="visible" variants={fadeUp} style={{ marginTop: '24px', background: 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)', border: '1px solid #bae6fd' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+            <div style={{ background: '#0284c7', color: 'white', padding: '6px', borderRadius: '8px' }}>
+              <Activity size={18} />
+            </div>
+            <h3 style={{ margin: 0, fontSize: '1.1rem', color: '#0369a1' }}>Gemini AI Tomorrow's Forecast</h3>
+            {loadingForecast && <Loader2 size={16} className="spin" style={{ color: '#0284c7', marginLeft: 'auto' }} />}
+          </div>
+          {aiForecast && !loadingForecast && (
+            <div style={{ display: 'flex', gap: '24px', alignItems: 'center', marginTop: '16px' }}>
+              <div style={{ textAlign: 'center', background: 'white', padding: '16px', borderRadius: '12px', minWidth: '120px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+                <div style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 600, textTransform: 'uppercase' }}>Predicted AQI</div>
+                <div style={{ fontSize: '2rem', fontWeight: 800, color: getAQIColor(aiForecast.prediction), lineHeight: 1.2 }}>{aiForecast.prediction}</div>
+              </div>
+              <p style={{ margin: 0, color: '#334155', fontSize: '1rem', lineHeight: 1.5, flex: 1 }}>
+                {aiForecast.explanation}
+              </p>
+            </div>
+          )}
         </motion.div>
 
         {/* Charts Grid */}

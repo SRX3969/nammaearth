@@ -46,9 +46,10 @@ export default function ReportIssue() {
   const [gpsError, setGpsError] = useState('');
   const [duplicateWarning, setDuplicateWarning] = useState('');
 
-  // Verification state
+  // Verification & AI state
   const [verifying, setVerifying] = useState(false);
   const [verification, setVerification] = useState(null);
+  const [aiAnalyzing, setAiAnalyzing] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -105,6 +106,45 @@ export default function ReportIssue() {
     }
   };
 
+  const analyzeImageWithAI = async (base64Image) => {
+    try {
+      const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      if (!apiKey) return;
+      setAiAnalyzing(true);
+      const base64Data = base64Image.split(',')[1];
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{
+            role: "user",
+            parts: [
+              { text: "Analyze this image of a civic/environmental issue in Bengaluru. Respond ONLY with a valid JSON object. Do not use markdown blocks. Format: {\"issueType\": \"id_from_list\", \"description\": \"Detailed description of the hazard\", \"severity\": \"Low\" | \"Medium\" | \"High\" | \"Critical\"}. The issueType id must be ONE OF: 'waste', 'air', 'noise', 'water', 'fire', 'other'." },
+              { inlineData: { mimeType: "image/jpeg", data: base64Data } }
+            ]
+          }],
+          generationConfig: { temperature: 0.2 }
+        })
+      });
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+      if (text) {
+        const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+        const aiData = JSON.parse(cleanedText);
+        setForm(prev => ({
+          ...prev,
+          issueType: prev.issueType || aiData.issueType || '',
+          description: prev.description || aiData.description || '',
+          severity: aiData.severity || prev.severity,
+        }));
+      }
+    } catch (e) {
+      console.error('AI Analysis failed:', e);
+    } finally {
+      setAiAnalyzing(false);
+    }
+  };
+
   // Handle image from file upload
   const handleImageUpload = (e) => {
     const file = e.target.files[0];
@@ -113,6 +153,7 @@ export default function ReportIssue() {
     const reader = new FileReader();
     reader.onloadend = () => {
       setForm(prev => ({ ...prev, image: file, imageName: file.name, imagePreview: reader.result }));
+      analyzeImageWithAI(reader.result);
     };
     reader.readAsDataURL(file);
     runVerification(file);
@@ -126,6 +167,7 @@ export default function ReportIssue() {
     const reader = new FileReader();
     reader.onloadend = () => {
       setForm(prev => ({ ...prev, image: file, imageName: file.name, imagePreview: reader.result }));
+      analyzeImageWithAI(reader.result);
     };
     reader.readAsDataURL(file);
     runVerification(file);
@@ -455,11 +497,19 @@ export default function ReportIssue() {
 
                         {/* ── Verification Panel ── */}
                         <AnimatePresence>
-                          {verifying && (
+                          {verifying && !aiAnalyzing && (
                             <motion.div className="verification-panel verification-panel--loading"
                               initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
                               <Loader2 size={18} className="spin" />
                               <span>Verifying image authenticity...</span>
+                            </motion.div>
+                          )}
+
+                          {aiAnalyzing && (
+                            <motion.div className="verification-panel verification-panel--loading"
+                              initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+                              <Loader2 size={18} className="spin" style={{ color: 'var(--primary)' }} />
+                              <span style={{ color: 'var(--primary)' }}>AI Auto-filling form...</span>
                             </motion.div>
                           )}
 
