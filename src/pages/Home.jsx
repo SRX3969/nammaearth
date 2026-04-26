@@ -6,7 +6,8 @@ import {
   BarChart3, Shield, Smartphone, Globe, Zap, Database,
   ChevronRight, Activity, Thermometer, Droplets, Volume2
 } from 'lucide-react';
-import { getLocationData } from '../data/locations';
+import { locations, getAQIColor } from '../data/locations';
+import { fetchLiveAQI, fetchLiveWeather } from '../lib/liveDataService';
 import { supabase } from '../lib/supabase';
 import './Home.css';
 
@@ -101,6 +102,14 @@ const techStack = [
   { icon: Zap, label: 'Gemini AI', desc: 'Smart Assistant' },
 ];
 
+function getAQICategory(aqi) {
+  if (aqi <= 50) return { label: 'Good', color: '#4caf50', bg: '#e8f5e9' };
+  if (aqi <= 100) return { label: 'Satisfactory', color: '#8bc34a', bg: '#f1f8e9' };
+  if (aqi <= 200) return { label: 'Moderate', color: '#ff9800', bg: '#fff3e0' };
+  if (aqi <= 300) return { label: 'Poor', color: '#f44336', bg: '#ffebee' };
+  return { label: 'Very Poor', color: '#9c27b0', bg: '#f3e5f5' };
+}
+
 export default function Home() {
   const [locationData, setLocationData] = useState([]);
   const [currentAQI, setCurrentAQI] = useState(null);
@@ -112,36 +121,57 @@ export default function Home() {
     resolvedPercent: 0,
   });
 
-  // Fetch real-time AQI from WAQI API
+  // Fetch real-time data from Open-Meteo (same service as Statistics page)
   useEffect(() => {
-    const data = getLocationData();
-    setLocationData(data);
+    const fetchAllLocalities = async () => {
+      const results = await Promise.all(
+        locations.slice(0, 8).map(async (loc) => {
+          const [aqiData, weatherData] = await Promise.all([
+            fetchLiveAQI(loc.lat, loc.lng, loc.type, loc.name),
+            fetchLiveWeather(loc.lat, loc.lng, loc.name),
+          ]);
+          const aqi = aqiData?.aqi ?? 80;
+          const category = getAQICategory(aqi);
+          return {
+            ...loc,
+            aqi,
+            category,
+            temperature: weatherData?.temperature ?? 28,
+            humidity: weatherData?.humidity ?? 55,
+            noiseLevel: 40 + Math.round((aqi / 300) * 50 + (loc.name.length % 10)),
+            lastUpdated: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+          };
+        })
+      );
+      setLocationData(results);
 
-    // Fallback AQI from simulated data
-    const fallbackAQI = Math.round(data.reduce((sum, d) => sum + d.aqi, 0) / data.length);
-
-    const fetchLiveAQI = async () => {
-      try {
-        const res = await fetch('https://api.waqi.info/feed/bangalore/?token=demo');
-        const json = await res.json();
-        if (json.status === 'ok' && json.data?.aqi) {
-          setCurrentAQI(json.data.aqi);
-          // Extract weather if available
-          const iaqi = json.data.iaqi || {};
-          setLiveWeather({
-            temp: iaqi.t?.v ?? 29,
-            humidity: iaqi.h?.v ?? 62,
-            wind: iaqi.w?.v ?? 8,
-          });
-        } else {
-          setCurrentAQI(fallbackAQI);
-        }
-      } catch {
-        setCurrentAQI(fallbackAQI);
+      // Set city average AQI from the fetched data
+      if (results.length > 0) {
+        const avgAQI = Math.round(results.reduce((s, d) => s + d.aqi, 0) / results.length);
+        setCurrentAQI(avgAQI);
       }
     };
 
-    fetchLiveAQI();
+    // Fetch city-level weather from Open-Meteo
+    const fetchCityWeather = async () => {
+      try {
+        const res = await fetch(
+          'https://api.open-meteo.com/v1/forecast?latitude=12.9716&longitude=77.5946' +
+          '&current=temperature_2m,relative_humidity_2m,wind_speed_10m&timezone=Asia/Kolkata'
+        );
+        const data = await res.json();
+        if (data.current) {
+          setLiveWeather({
+            temp: Math.round(data.current.temperature_2m),
+            humidity: Math.round(data.current.relative_humidity_2m),
+            wind: Math.round(data.current.wind_speed_10m),
+          });
+        }
+      } catch { /* keep defaults */ }
+    };
+
+    fetchAllLocalities();
+    fetchCityWeather();
   }, []);
 
   // Fetch live stats from Supabase
