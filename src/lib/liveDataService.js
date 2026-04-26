@@ -99,17 +99,29 @@ export async function fetchLiveWeather(lat, lng, locName) {
     const tempOff = (nameOffset(locName || '') % 3); // ±2°C variation
     const humOff = (nameOffset(locName || '') % 5);  // ±4% variation
 
+    // Use realistic Bengaluru defaults if API is missing fields
+    const baseTemp = data.current?.temperature_2m ?? 28;
+    const baseHum = data.current?.relative_humidity_2m ?? 60;
+    const baseWind = data.current?.wind_speed_10m ?? 8;
+
+    // Clamp temperature between 25 and 40
+    let finalTemp = Math.round(baseTemp + tempOff);
+    finalTemp = Math.max(25, Math.min(40, finalTemp));
+
     const result = {
-      temperature: Math.round((data.current?.temperature_2m ?? 0) + tempOff),
-      humidity: Math.max(10, Math.min(100, Math.round((data.current?.relative_humidity_2m ?? 0) + humOff))),
-      windSpeed: +(data.current?.wind_speed_10m ?? 0).toFixed(1),
-      daily: (data.daily?.time || []).map((date, i) => ({
-        day: new Date(date).toLocaleDateString('en-IN', { weekday: 'short' }),
-        temperature: Math.round(
-          ((data.daily.temperature_2m_max?.[i] ?? 0) + (data.daily.temperature_2m_min?.[i] ?? 0)) / 2 + tempOff
-        ),
-        humidity: Math.max(10, Math.min(100, Math.round((data.daily.relative_humidity_2m_mean?.[i] ?? 0) + humOff))),
-      })),
+      temperature: finalTemp,
+      humidity: Math.max(20, Math.min(95, Math.round(baseHum + humOff))),
+      windSpeed: +(baseWind).toFixed(1),
+      daily: (data.daily?.time || []).map((date, i) => {
+        let maxT = data.daily?.temperature_2m_max?.[i] ?? 32;
+        let minT = data.daily?.temperature_2m_min?.[i] ?? 22;
+        let avgT = (maxT + minT) / 2 + tempOff;
+        return {
+          day: new Date(date).toLocaleDateString('en-IN', { weekday: 'short' }),
+          temperature: Math.max(25, Math.min(40, Math.round(avgT))),
+          humidity: Math.max(20, Math.min(95, Math.round((data.daily?.relative_humidity_2m_mean?.[i] ?? 60) + humOff))),
+        };
+      }),
     };
     setCache(key, result);
     return result;
