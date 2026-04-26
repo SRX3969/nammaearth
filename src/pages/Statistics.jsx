@@ -145,21 +145,18 @@ export default function Statistics() {
       try {
         const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
         if (!apiKey) return;
-        const prompt = `Based on the following current environmental data for ${currentLoc.name} in Bengaluru, predict tomorrow's conditions. Give a short 1-sentence explanation.
+        const prompt = `Based on the following current environmental data for ${currentLoc.name} in Bengaluru, predict tomorrow's conditions. Give a detailed, scientific 2-3 sentence explanation of why these conditions will occur based on the relationship between temperature, humidity, and pollution.
 Current AQI: ${liveAQI.aqi}
 Current Temp: ${liveWeather.temperature}°C
 Current Humidity: ${liveWeather.humidity}%
-Respond strictly in JSON format like: {"prediction": 120, "temp": 32, "humidity": 55, "risk": "Moderate", "explanation": "AQI will likely rise due to falling humidity holding PM2.5 closer to the ground."}`;
+Respond strictly in JSON format like: {"prediction": 120, "temp": 32, "humidity": 55, "risk": "Moderate", "explanation": "Detailed explanation here..."}`;
         
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ role: "user", parts: [{ text: prompt }] }],
-            generationConfig: { 
-              temperature: 0.3,
-              responseMimeType: "application/json" 
-            }
+            generationConfig: { temperature: 0.3 }
           })
         });
         const data = await response.json();
