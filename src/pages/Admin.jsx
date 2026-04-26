@@ -3,10 +3,14 @@ import { motion } from 'framer-motion';
 import {
   Shield, AlertCircle, MapPin, Clock, Check, X, Eye, Image as ImageIcon,
   FileText, Loader2, ChevronDown, ChevronUp, Filter,
-  ShieldCheck, ShieldAlert, ShieldX, Fingerprint
+  ShieldCheck, ShieldAlert, ShieldX, Fingerprint, Lock, LogIn
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import './Admin.css';
+
+// Admin credentials — change these for production
+const ADMIN_USERNAME = 'admin';
+const ADMIN_PASSWORD = 'NammaEarth@2026';
 
 const fadeUp = {
   hidden: { opacity: 0, y: 20 },
@@ -14,15 +18,56 @@ const fadeUp = {
 };
 
 export default function Admin() {
+  // Admin auth state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginForm, setLoginForm] = useState({ username: '', password: '' });
+  const [loginError, setLoginError] = useState('');
+  const [loginLoading, setLoginLoading] = useState(false);
+
+  // Dashboard state
   const [reports, setReports] = useState([]);
   const [loading, setLoading] = useState(true);
   const [expandedId, setExpandedId] = useState(null);
   const [filter, setFilter] = useState('All');
   const [stats, setStats] = useState({ total: 0, submitted: 0, inProgress: 0, resolved: 0, rejected: 0 });
 
+  // Check if admin session exists in sessionStorage
   useEffect(() => {
-    loadReports();
+    const adminSession = sessionStorage.getItem('nammaearth_admin');
+    if (adminSession === 'authenticated') {
+      setIsAuthenticated(true);
+    }
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadReports();
+    }
+  }, [isAuthenticated]);
+
+  const handleAdminLogin = (e) => {
+    e.preventDefault();
+    setLoginLoading(true);
+    setLoginError('');
+
+    // Simulate a brief delay for security feel
+    setTimeout(() => {
+      if (loginForm.username === ADMIN_USERNAME && loginForm.password === ADMIN_PASSWORD) {
+        sessionStorage.setItem('nammaearth_admin', 'authenticated');
+        setIsAuthenticated(true);
+        setLoginError('');
+      } else {
+        setLoginError('Invalid credentials. Access denied.');
+      }
+      setLoginLoading(false);
+    }, 800);
+  };
+
+  const handleAdminLogout = () => {
+    sessionStorage.removeItem('nammaearth_admin');
+    setIsAuthenticated(false);
+    setLoginForm({ username: '', password: '' });
+  };
 
   const loadReports = async () => {
     setLoading(true);
@@ -85,6 +130,70 @@ export default function Admin() {
     );
   };
 
+  // ── Admin Login Screen ──
+  if (!isAuthenticated) {
+    return (
+      <div className="admin-page">
+        <div className="container">
+          <motion.div className="admin-login" initial="hidden" animate="visible" variants={fadeUp}>
+            <div className="admin-login__card card">
+              <div className="admin-login__icon">
+                <Shield size={48} />
+              </div>
+              <h1 className="admin-login__title">Admin Access</h1>
+              <p className="admin-login__desc">
+                This dashboard is restricted to authorized government officials. Enter your credentials to continue.
+              </p>
+
+              <form onSubmit={handleAdminLogin} className="admin-login__form">
+                <div className="form-group">
+                  <label className="form-label"><Lock size={14} /> Username</label>
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Enter admin username"
+                    value={loginForm.username}
+                    onChange={(e) => setLoginForm(prev => ({ ...prev, username: e.target.value }))}
+                    autoComplete="username"
+                    required
+                  />
+                </div>
+                <div className="form-group">
+                  <label className="form-label"><Lock size={14} /> Password</label>
+                  <input
+                    type="password"
+                    className="form-input"
+                    placeholder="Enter admin password"
+                    value={loginForm.password}
+                    onChange={(e) => setLoginForm(prev => ({ ...prev, password: e.target.value }))}
+                    autoComplete="current-password"
+                    required
+                  />
+                </div>
+
+                {loginError && (
+                  <div className="admin-login__error">
+                    <AlertCircle size={14} />
+                    <span>{loginError}</span>
+                  </div>
+                )}
+
+                <button type="submit" className="btn btn-primary btn-lg admin-login__btn" disabled={loginLoading}>
+                  {loginLoading ? (
+                    <><Loader2 size={18} className="spin" /> Authenticating...</>
+                  ) : (
+                    <><LogIn size={18} /> Sign In to Dashboard</>
+                  )}
+                </button>
+              </form>
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Dashboard (authenticated) ──
   if (loading) {
     return (
       <div className="admin-page" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'calc(100vh - 72px)' }}>
@@ -104,6 +213,9 @@ export default function Admin() {
               <p className="admin-header__desc">Government view — Manage and respond to citizen reports</p>
             </div>
           </div>
+          <button className="btn btn-ghost admin-logout-btn" onClick={handleAdminLogout}>
+            <Lock size={14} /> Logout
+          </button>
         </motion.div>
 
         {/* Stats Cards */}
@@ -185,7 +297,7 @@ export default function Admin() {
                       </div>
                     </div>
 
-                    {/* ── Verification Section ── */}
+                    {/* Verification Section */}
                     {report.verification_score != null && (
                       <div className={`admin-verification admin-verification--${(report.verification_status || 'genuine').toLowerCase().replace(' ', '-')}`}>
                         <div className="admin-verification__header">

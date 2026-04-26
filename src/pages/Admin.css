@@ -4,7 +4,115 @@
   min-height: 100vh;
 }
 
+/* ===== ADMIN LOGIN ===== */
+.admin-login {
+  max-width: 440px;
+  margin: 60px auto;
+}
+
+.admin-login__card {
+  padding: 48px 36px;
+  text-align: center;
+}
+
+.admin-login__icon {
+  width: 80px;
+  height: 80px;
+  background: var(--primary-light);
+  color: var(--primary);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 24px;
+}
+
+.admin-login__title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--gray-900);
+  margin-bottom: 8px;
+}
+
+.admin-login__desc {
+  font-size: 0.875rem;
+  color: var(--gray-500);
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+
+.admin-login__form {
+  text-align: left;
+}
+
+.admin-login__form .form-group {
+  margin-bottom: 16px;
+}
+
+.admin-login__form .form-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--gray-700);
+  margin-bottom: 6px;
+}
+
+.form-input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--gray-200);
+  border-radius: var(--radius-md);
+  font-size: 0.9375rem;
+  color: var(--gray-800);
+  background: #fff;
+  transition: all var(--transition-fast);
+}
+
+.form-input:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(15, 107, 138, 0.08);
+  outline: none;
+}
+
+[data-theme="dark"] .form-input {
+  background: rgba(30, 41, 59, 0.6);
+  border-color: rgba(255, 255, 255, 0.1);
+  color: var(--gray-100);
+}
+
+.admin-login__error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: var(--radius-md);
+  color: #dc2626;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  margin-bottom: 16px;
+}
+
+[data-theme="dark"] .admin-login__error {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.admin-login__btn {
+  width: 100%;
+  margin-top: 8px;
+}
+
+/* ===== HEADER + LOGOUT ===== */
 .admin-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 28px;
 }
 
@@ -12,6 +120,11 @@
   display: flex;
   align-items: center;
   gap: 12px;
+}
+
+.admin-logout-btn {
+  color: var(--gray-500);
+  font-size: 0.8125rem;
 }
 
 .admin-header__title {
